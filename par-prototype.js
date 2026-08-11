@@ -3,29 +3,34 @@ const state = {
   selectedOrderId: "PO-1048",
   selectedDashboardOrderId: "PO-1069",
   selectedInventoryId: "seal-kit",
-  selectedRecommendationId: "seal-kit",
+  selectedRecommendationId: "PO-1048::seal-kit",
   selectedRequestId: "PR-2048",
   selectedCompletedRequestId: null,
+  selectedCustomer: null,
+  customerSearch: "",
   statusFilter: "All",
   pumpFilter: "All",
   stockFilter: "All",
-  readinessResolved: false,
-  releasedOrderId: null,
-  orderStatusOverrides: {},
-  orderCreated: false,
-  purchaseCreated: false,
-  requestReceived: false,
-  requestCancelled: false,
+  orderSearch: "",
+  inventorySearch: "",
+  releasedOrderIds: [],
+  finishedOrderIds: [],
+  createdOrders: [],
+  createComponents: [],
+  nextOrderSeq: 1092,
+  nextRequestSeq: 2090,
+  createOrderError: "",
+  createRequestError: "",
   receivedRequestIds: [],
   cancelledRequestIds: [],
   partialReceipts: {
     "PR-2057": 10,
-    "PR-2063": 5,
+    "PR-2063": 2,
   },
   createdRequests: [],
-  createdRequestId: null,
   createOrderId: "",
   createCustomer: "",
+  createCustomerType: "Commercial",
   createPump: "Select pump model",
   createQty: "",
   createOrderedDate: "",
@@ -45,54 +50,48 @@ const state = {
 };
 
 const orders = [
-  { id: "PO-1048", customer: "Northfield Waterworks", model: "Pump A-12", qty: 12, ordered: "Jun 8, 2026", date: "Jun 12, 2026", status: "Blocked", blocking: "Seal Kit SK-08", notes: "Priority replacement order for site maintenance." },
-  { id: "PO-1051", customer: "Delta Farms", model: "Pump B-20", qty: 6, ordered: "Jun 9, 2026", date: "Jun 14, 2026", status: "In production", blocking: "", notes: "Standard irrigation pump batch." },
-  { id: "PO-1057", customer: "City Utilities", model: "Pump C-05", qty: 18, ordered: "Jun 10, 2026", date: "Jun 18, 2026", status: "In production", blocking: "", notes: "Split delivery acceptable if assembly runs late." },
-  { id: "PO-1062", customer: "Riverbend Co-op", model: "Pump A-12", qty: 8, ordered: "Jun 12, 2026", date: "Jun 21, 2026", status: "Ready", blocking: "", notes: "Hold finished units for customer pickup." },
-  { id: "PO-1064", customer: "Oakridge Processing", model: "Pump D-10", qty: 4, ordered: "Jun 13, 2026", date: "Jun 24, 2026", status: "Ready", blocking: "", notes: "Use standard packaging." },
-  { id: "PO-1069", customer: "Harbor Supply", model: "Pump D-10", qty: 5, ordered: "Jun 14, 2026", date: "Jun 25, 2026", status: "In production", blocking: "", notes: "Confirm final inspection before dispatch." },
-  { id: "PO-1068", customer: "Mesa Agri Systems", model: "Pump B-20", qty: 10, ordered: "Jun 15, 2026", date: "Jun 28, 2026", status: "Blocked", blocking: "Bearing BR-02", notes: "Waiting for bearing stock before release." },
+  { id: "PO-1048", customer: "Northfield Waterworks", customerType: "Municipal", model: "Pump A-12", qty: 12, ordered: "Jun 8, 2026", date: "Jun 12, 2026", notes: "Priority replacement order for site maintenance.", priority: "High", components: [{ itemId: "seal-kit", required: 12 }, { itemId: "impeller", required: 8 }, { itemId: "fastener", required: 24 }] },
+  { id: "PO-1051", customer: "Delta Farms", customerType: "Agricultural", model: "Pump B-20", qty: 6, ordered: "Jun 9, 2026", date: "Jun 14, 2026", notes: "Standard irrigation pump batch.", priority: "Medium", stage: "released", components: [{ itemId: "motor", required: 20 }] },
+  { id: "PO-1057", customer: "City Utilities", customerType: "Municipal", model: "Pump C-05", qty: 18, ordered: "Jun 10, 2026", date: "Jun 18, 2026", notes: "Split delivery acceptable if assembly runs late.", priority: "Medium", stage: "released", components: [{ itemId: "impeller", required: 27 }] },
+  { id: "PO-1062", customer: "Riverbend Co-op", customerType: "Agricultural", model: "Pump A-12", qty: 8, ordered: "Jun 12, 2026", date: "Jun 21, 2026", notes: "Hold finished units for customer pickup.", priority: "Medium", components: [{ itemId: "shaft", required: 8 }] },
+  { id: "PO-1064", customer: "Oakridge Processing", customerType: "Industrial", model: "Pump D-10", qty: 4, ordered: "Jun 13, 2026", date: "Jun 24, 2026", notes: "Use standard packaging.", priority: "Medium", components: [{ itemId: "casing", required: 4 }] },
+  { id: "PO-1069", customer: "Harbor Supply", customerType: "Commercial", model: "Pump D-10", qty: 5, ordered: "Jun 14, 2026", date: "Jun 25, 2026", notes: "Confirm final inspection before dispatch.", priority: "Medium", stage: "released", components: [{ itemId: "coupling", required: 5 }] },
+  { id: "PO-1068", customer: "Mesa Agri Systems", customerType: "Agricultural", model: "Pump B-20", qty: 10, ordered: "Jun 15, 2026", date: "Jun 28, 2026", notes: "Waiting for bearing stock before release.", priority: "High", components: [{ itemId: "bearing", required: 10 }, { itemId: "mechanical-seal", required: 10 }] },
+  { id: "PO-1072", customer: "Fairview Water Systems", customerType: "Municipal", model: "Pump C-05", qty: 8, ordered: "Jun 16, 2026", date: "Jun 30, 2026", notes: "Awaiting gasket restock before release.", priority: "Low", components: [{ itemId: "gasket", required: 8 }] },
+  { id: "PO-1074", customer: "Crestline Municipal", customerType: "Municipal", model: "Pump D-10", qty: 18, ordered: "Jun 17, 2026", date: "Jul 2, 2026", notes: "Blocked on O-Ring Set until received.", priority: "Medium", components: [{ itemId: "o-ring", required: 18 }] },
 ];
 
 const completedOrders = [
-  { id: "PO-1036", model: "Pump A-12", qty: 10, completed: "Jun 7, 2026", status: "Finished" },
-  { id: "PO-1032", model: "Pump B-20", qty: 4, completed: "Jun 6, 2026", status: "Finished" },
-  { id: "PO-1028", model: "Pump D-10", qty: 6, completed: "Jun 4, 2026", status: "Finished" },
+  { id: "PO-1036", customer: "Northfield Waterworks", customerType: "Municipal", model: "Pump A-12", qty: 10, ordered: "May 26, 2026", date: "Jun 5, 2026", completed: "Jun 7, 2026", status: "Finished" },
+  { id: "PO-1032", customer: "Delta Farms", customerType: "Agricultural", model: "Pump B-20", qty: 4, ordered: "May 22, 2026", date: "Jun 4, 2026", completed: "Jun 6, 2026", status: "Finished" },
+  { id: "PO-1028", customer: "Oakridge Processing", customerType: "Industrial", model: "Pump D-10", qty: 6, ordered: "May 18, 2026", date: "Jun 2, 2026", completed: "Jun 4, 2026", status: "Finished" },
 ];
 
 const inventory = [
-  { id: "seal-kit", name: "Seal Kit SK-08", category: "Component", onHand: 4, updatedOnHand: 12, reorder: 20, status: "Low stock", related: ["PO-1048 needs 12 units", "PO-1057 may need 18 units"] },
-  { id: "bearing", name: "Bearing BR-02", category: "Component", onHand: 0, updatedOnHand: 0, reorder: 12, status: "Out of stock", related: ["PO-1068 and PO-1092 need this item before release."] },
-  { id: "impeller", name: "Impeller 4in", category: "Component", onHand: 9, updatedOnHand: 9, reorder: 30, status: "Low stock", related: ["PO-1057 may need 18 units"] },
-  { id: "motor", name: "Motor Housing", category: "Component", onHand: 14, updatedOnHand: 14, reorder: 10, status: "In stock", related: ["PO-1051 needs 6 units"] },
-  { id: "fastener", name: "Fastener Set FS-20", category: "Component", onHand: 30, updatedOnHand: 30, reorder: 25, status: "In stock", related: [] },
-  { id: "shaft", name: "Shaft Assembly", category: "Component", onHand: 16, updatedOnHand: 16, reorder: 10, status: "In stock", related: ["PO-1062 needs 8 units"] },
-  { id: "mechanical-seal", name: "Mechanical Seal", category: "Component", onHand: 6, updatedOnHand: 6, reorder: 14, status: "Low stock", related: ["PO-1068 may need 10 units"] },
-  { id: "o-ring", name: "O-Ring Set", category: "Component", onHand: 0, updatedOnHand: 0, reorder: 18, status: "Out of stock", related: ["PO-1074 cannot start until this item is received."] },
-  { id: "casing", name: "Pump Casing", category: "Component", onHand: 11, updatedOnHand: 11, reorder: 8, status: "In stock", related: [] },
-  { id: "coupling", name: "Coupling Set", category: "Component", onHand: 7, updatedOnHand: 7, reorder: 6, status: "In stock", related: ["PO-1069 needs 5 units"] },
-  { id: "pump-cp", name: "Pump CP-100", category: "Finished good", onHand: 18, updatedOnHand: 18, reorder: 8, status: "In stock", related: [] },
-];
-
-const recommendations = [
-  { id: "seal-kit", item: "Seal Kit SK-08", order: "PO-1048", required: 12, available: 4, shortage: 8, priority: "High", action: "Buy 8 units" },
-  { id: "bearing", item: "Bearing BR-02", order: "PO-1068", required: 10, available: 0, shortage: 10, priority: "High", action: "Buy 10 units" },
-  { id: "impeller", item: "Impeller 4in", order: "PO-1057", required: 27, available: 9, shortage: 18, priority: "Medium", action: "Buy 18 units" },
-  { id: "motor", item: "Motor Housing", order: "PO-1051", required: 20, available: 14, shortage: 6, priority: "Medium", action: "Buy 6 units" },
-  { id: "gasket", item: "Gasket G-14", order: "PO-1072", required: 8, available: 3, shortage: 5, priority: "Low", action: "Review supplier" },
-  { id: "o-ring", item: "O-Ring Set", order: "PO-1074", required: 18, available: 0, shortage: 18, priority: "Medium", action: "Buy 18 units" },
+  { id: "seal-kit", name: "Seal Kit SK-08", category: "Component", onHand: 4, reorder: 20, critical: true, related: ["PO-1048 needs 12 units", "PO-1057 may need 18 units"] },
+  { id: "bearing", name: "Bearing BR-02", category: "Component", onHand: 0, reorder: 12, critical: true, related: ["PO-1068 needs this item before release."] },
+  { id: "impeller", name: "Impeller 4in", category: "Component", onHand: 9, reorder: 30, critical: true, related: ["PO-1057 may need 18 units"] },
+  { id: "motor", name: "Motor Housing", category: "Component", onHand: 14, reorder: 10, related: ["PO-1051 needs 6 units"] },
+  { id: "fastener", name: "Fastener Set FS-20", category: "Component", onHand: 30, reorder: 25, related: [] },
+  { id: "shaft", name: "Shaft Assembly", category: "Component", onHand: 16, reorder: 10, related: ["PO-1062 needs 8 units"] },
+  { id: "mechanical-seal", name: "Mechanical Seal", category: "Component", onHand: 6, reorder: 14, critical: true, related: ["PO-1068 may need 10 units"] },
+  { id: "o-ring", name: "O-Ring Set", category: "Component", onHand: 0, reorder: 18, critical: true, related: ["PO-1074 cannot start until this item is received."] },
+  { id: "gasket", name: "Gasket G-14", category: "Component", onHand: 3, reorder: 8, related: ["PO-1072 needs 8 units"] },
+  { id: "casing", name: "Pump Casing", category: "Component", onHand: 11, reorder: 8, related: [] },
+  { id: "coupling", name: "Coupling Set", category: "Component", onHand: 7, reorder: 6, related: ["PO-1069 needs 5 units"] },
+  { id: "pump-cp", name: "Pump CP-100", category: "Finished good", onHand: 18, reorder: 8, related: [] },
 ];
 
 const requests = [
-  { id: "PR-2048", item: "Seal Kit SK-08", order: "PO-1048", qty: 8, priority: "High", status: "Pending", supplier: "Preferred supplier", requestedOn: "Jun 10, 2026" },
-  { id: "PR-2051", item: "Bearing BR-02", order: "PO-1068", qty: 10, priority: "High", status: "Pending", supplier: "Preferred supplier", requestedOn: "Jun 9, 2026" },
-  { id: "PR-2057", item: "Impeller 4in", order: "PO-1057", qty: 18, priority: "Medium", status: "Pending", supplier: "Preferred supplier", requestedOn: "Jun 8, 2026" },
-  { id: "PR-2063", item: "Gasket G-14", order: "PO-1072", qty: 12, priority: "Low", status: "Pending", supplier: "Preferred supplier", requestedOn: "Jun 11, 2026" },
+  { id: "PR-2048", item: "Seal Kit SK-08", itemId: "seal-kit", order: "PO-1048", qty: 8, priority: "High", status: "Pending", supplier: "Preferred supplier", requestedOn: "Jun 10, 2026", expectedDate: "2026-06-15" },
+  { id: "PR-2051", item: "Bearing BR-02", itemId: "bearing", order: "PO-1068", qty: 10, priority: "High", status: "Pending", supplier: "Preferred supplier", requestedOn: "Jun 9, 2026", expectedDate: "2026-06-16" },
+  { id: "PR-2057", item: "Impeller 4in", itemId: "impeller", order: "PO-1057", qty: 18, priority: "Medium", status: "Pending", supplier: "Preferred supplier", requestedOn: "Jun 8, 2026", expectedDate: "2026-06-20" },
+  { id: "PR-2063", item: "Gasket G-14", itemId: "gasket", order: "PO-1072", qty: 5, priority: "Low", status: "Pending", supplier: "Preferred supplier", requestedOn: "Jun 11, 2026", expectedDate: "2026-06-25" },
 ];
 
 const requestHistory = [
-  { id: "PR-2038", item: "Fastener Set FS-20", order: "PO-1036", qty: 24, priority: "Low", status: "Received", completed: "Jun 8, 2026", notes: "Parts received and inventory updated." },
-  { id: "PR-2034", item: "Gasket G-14", order: "PO-1032", qty: 6, priority: "Medium", status: "Cancelled", completed: "Jun 6, 2026", notes: "Cancelled after order quantity was revised." },
+  { id: "PR-2038", item: "Fastener Set FS-20", itemId: "fastener", order: "PO-1036", qty: 24, priority: "Low", status: "Received", completed: "Jun 8, 2026", notes: "Parts received and inventory updated." },
+  { id: "PR-2034", item: "Gasket G-14", itemId: "gasket", order: "PO-1032", qty: 6, priority: "Medium", status: "Cancelled", completed: "Jun 6, 2026", notes: "Cancelled after order quantity was revised." },
 ];
 
 const app = document.getElementById("app");
@@ -102,23 +101,95 @@ function pumpModelOptions() {
   return ["Select pump model", "Centrifugal Pump CP-100", "Pump A-12", "Pump B-20", "Pump C-05", "Pump D-10"];
 }
 
+function customerTypeOptions() {
+  return ["Commercial", "Agricultural", "Industrial", "Municipal"];
+}
+
+const pumpModelDefaultComponents = {
+  "Pump A-12": [{ itemId: "seal-kit", required: 12 }, { itemId: "impeller", required: 8 }, { itemId: "fastener", required: 24 }],
+  "Pump B-20": [{ itemId: "bearing", required: 10 }, { itemId: "mechanical-seal", required: 10 }],
+  "Pump C-05": [{ itemId: "gasket", required: 8 }],
+  "Pump D-10": [{ itemId: "o-ring", required: 18 }],
+};
+
+function defaultComponentsForModel(model) {
+  const template = pumpModelDefaultComponents[model];
+  return template ? template.map((component) => ({ ...component })) : [];
+}
+
+function parsePositiveInt(value) {
+  const n = Number(String(value ?? "").trim());
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 function nextProductionOrderId() {
-  return "PO-1092";
+  return `PO-${state.nextOrderSeq}`;
+}
+
+function isOrderIdTaken(id) {
+  return [...orders, ...state.createdOrders].some((order) => order.id === id);
 }
 
 function resetCreateOrderForm() {
   state.createOrderId = nextProductionOrderId();
   state.createCustomer = "";
+  state.createCustomerType = "Commercial";
   state.createPump = "Select pump model";
   state.createQty = "";
   state.createOrderedDate = appTodayIso;
   state.createDate = "";
   state.createNotes = "";
+  state.createOrderError = "";
+  state.createComponents = [];
 }
 
 function ensureCreateOrderDefaults() {
   if (!state.createOrderId) state.createOrderId = nextProductionOrderId();
   if (!state.createOrderedDate) state.createOrderedDate = appTodayIso;
+}
+
+function validCreateComponents() {
+  return (state.createComponents || [])
+    .map((component) => ({ itemId: component.itemId, required: parsePositiveInt(component.required) }))
+    .filter((component) => component.itemId && component.required);
+}
+
+function buildOrderFromForm(id, qty) {
+  return {
+    id,
+    customer: state.createCustomer.trim() || "Not recorded",
+    customerType: state.createCustomerType || "Commercial",
+    model: state.createPump && state.createPump !== "Select pump model" ? state.createPump : "Custom pump model",
+    qty,
+    ordered: formatDateLabel(state.createOrderedDate),
+    date: formatDateLabel(state.createDate),
+    notes: state.createNotes.trim() || "No notes added",
+    priority: "Medium",
+    components: validCreateComponents(),
+  };
+}
+
+function tryCreateOrder() {
+  const id = (state.createOrderId || "").trim();
+  const qty = parsePositiveInt(state.createQty);
+  if (!id) {
+    state.createOrderError = "Order ID is required.";
+    return null;
+  }
+  if (isOrderIdTaken(id)) {
+    state.createOrderError = `Order ID ${id} already exists. Choose a different ID.`;
+    return null;
+  }
+  if (!qty) {
+    state.createOrderError = "Enter a quantity greater than 0.";
+    return null;
+  }
+  const order = buildOrderFromForm(id, qty);
+  state.createdOrders.push(order);
+  state.nextOrderSeq += 1;
+  state.createOrderError = "";
+  state.selectedOrderId = order.id;
+  return order;
 }
 
 function currentPurchaseRequests() {
@@ -129,17 +200,185 @@ function findPurchaseRequest(id) {
   return currentPurchaseRequests().find((r) => r.id === id) || requestHistory.find((r) => r.id === id);
 }
 
-function recommendationForInventoryItem(item) {
-  return recommendations.find((r) => r.id === item.id || r.item === item.name);
+function isRequestIdTaken(id) {
+  return requests.some((r) => r.id === id) || requestHistory.some((r) => r.id === id) || state.createdRequests.some((r) => r.id === id);
 }
 
-function createdRecommendationIds() {
-  return new Set(state.createdRequests.map((request) => request.recommendationId).filter(Boolean));
+function nextPurchaseRequestId() {
+  let id = `PR-${state.nextRequestSeq}`;
+  while (isRequestIdTaken(id)) {
+    state.nextRequestSeq += 1;
+    id = `PR-${state.nextRequestSeq}`;
+  }
+  return id;
+}
+
+function inventoryItemById(id) {
+  return inventory.find((item) => item.id === id);
+}
+
+function inventoryStockStatus(item) {
+  if (item.onHand <= 0) return "Out of stock";
+  if (item.onHand < item.reorder) return "Low stock";
+  return "In stock";
+}
+
+function orderShortages(order) {
+  return (order.components || []).map((component) => {
+    const item = inventoryItemById(component.itemId);
+    const available = item ? item.onHand : 0;
+    return {
+      itemId: component.itemId,
+      item,
+      required: component.required,
+      available,
+      shortage: Math.max(component.required - available, 0),
+      critical: !!item?.critical,
+    };
+  });
+}
+
+function isOrderBlocked(order) {
+  return orderShortages(order).some((component) => component.shortage > 0);
+}
+
+function findAnyOrder(orderId) {
+  return [...orders, ...state.createdOrders].find((order) => order.id === orderId);
+}
+
+// Parts physically leave the shelf when an order is released to the floor.
+function applyComponentStock(order, direction) {
+  (order.components || []).forEach((component) => {
+    const item = inventoryItemById(component.itemId);
+    if (item) item.onHand = Math.max(0, item.onHand + direction * component.required);
+  });
+}
+
+function releaseOrder(orderId) {
+  if (state.releasedOrderIds.includes(orderId)) return false;
+  const order = findAnyOrder(orderId);
+  if (!order || isOrderBlocked(order)) return false;
+  applyComponentStock(order, -1);
+  state.releasedOrderIds.push(orderId);
+  return true;
+}
+
+function returnOrderToQueue(orderId) {
+  if (!state.releasedOrderIds.includes(orderId)) return false;
+  const order = findAnyOrder(orderId);
+  if (!order) return false;
+  applyComponentStock(order, 1);
+  state.releasedOrderIds = state.releasedOrderIds.filter((id) => id !== orderId);
+  return true;
+}
+
+function isOrderQueued(order) {
+  return !(state.releasedOrderIds.includes(order.id) || state.finishedOrderIds.includes(order.id));
+}
+
+function computedOrderStatus(order) {
+  if (state.finishedOrderIds.includes(order.id)) return "Finished";
+  if (state.releasedOrderIds.includes(order.id)) return "In production";
+  return isOrderBlocked(order) ? "Blocked" : "Ready to build";
+}
+
+function blockingSummary(order) {
+  return orderShortages(order)
+    .filter((component) => component.shortage > 0)
+    .map((component) => component.item?.name)
+    .filter(Boolean)
+    .join(", ");
+}
+
+function activeRequestForShortfall(orderId, itemId) {
+  return currentPurchaseRequests().find(
+    (request) => request.order === orderId && request.itemId === itemId && ["Pending", "Partially received"].includes(requestStatus(request))
+  );
+}
+
+function orderExpectedReadyLabel(order) {
+  const dates = orderShortages(order)
+    .filter((component) => component.shortage > 0)
+    .map((component) => activeRequestForShortfall(order.id, component.itemId)?.expectedDate)
+    .filter(Boolean);
+  if (!dates.length) return null;
+  const latest = dates.reduce((a, b) => (new Date(a) > new Date(b) ? a : b));
+  return formatDateLabel(latest);
+}
+
+const customerUrgencyNotes = {
+  Agricultural: "Delivery is tied to planting season — a delay can cost the customer the full growing season.",
+  Industrial: "Tied to a customer production line changeover — a delay can halt the customer's own output.",
+  Municipal: "Scheduled infrastructure replacement — typically has more flexibility if delayed.",
+  Commercial: "Standard delivery — no seasonal or regulatory deadline pressure.",
+};
+
+const customerUrgencyWeight = { Agricultural: 3, Industrial: 2, Municipal: 1, Commercial: 0 };
+
+function orderUrgencyWeight(order) {
+  return customerUrgencyWeight[order.customerType] ?? 0;
+}
+
+function computeRecommendations() {
+  const list = currentOrders()
+    .filter((order) => isOrderQueued(order) && order.status === "Blocked")
+    .flatMap((order) =>
+      orderShortages(order)
+        .filter((component) => component.shortage > 0)
+        .map((component) => ({
+          id: `${order.id}::${component.itemId}`,
+          itemId: component.itemId,
+          item: component.item?.name || component.itemId,
+          order: order.id,
+          required: component.required,
+          available: component.available,
+          shortage: component.shortage,
+          critical: component.critical,
+          priority: component.critical ? "High" : order.priority || "Medium",
+        }))
+    );
+  return list.sort((a, b) => (b.critical ? 1 : 0) - (a.critical ? 1 : 0));
+}
+
+function hasAnyActiveRequestForItem(itemId) {
+  return currentPurchaseRequests().some(
+    (request) => request.itemId === itemId && ["Pending", "Partially received"].includes(requestStatus(request))
+  );
+}
+
+function restockRecommendations() {
+  const orderDrivenItemIds = new Set(computeRecommendations().map((recommendation) => recommendation.itemId));
+  return inventory
+    .filter((item) => item.category === "Component")
+    .filter((item) => inventoryStockStatus(item) !== "In stock")
+    .filter((item) => !orderDrivenItemIds.has(item.id))
+    .filter((item) => !hasAnyActiveRequestForItem(item.id))
+    .map((item) => ({
+      id: `restock::${item.id}`,
+      itemId: item.id,
+      item: item.name,
+      order: "General restock",
+      required: item.reorder,
+      available: item.onHand,
+      shortage: Math.max(item.reorder - item.onHand, 0),
+      critical: !!item.critical,
+      priority: item.onHand <= 0 ? "High" : item.critical ? "Medium" : "Low",
+    }))
+    .sort((a, b) => (b.critical ? 1 : 0) - (a.critical ? 1 : 0));
+}
+
+function allRecommendations() {
+  return [...computeRecommendations(), ...restockRecommendations()];
+}
+
+function hasActiveRequestFor(orderId, itemId) {
+  return currentPurchaseRequests().some(
+    (request) => request.order === orderId && request.itemId === itemId && ["Pending", "Partially received"].includes(requestStatus(request))
+  );
 }
 
 function availableRecommendations() {
-  const requestedIds = createdRecommendationIds();
-  return recommendations.filter((recommendation) => !requestedIds.has(recommendation.id));
+  return allRecommendations().filter((recommendation) => !hasActiveRequestFor(recommendation.order, recommendation.itemId));
 }
 
 function selectedAvailableRecommendation() {
@@ -147,20 +386,12 @@ function selectedAvailableRecommendation() {
   return available.find((recommendation) => recommendation.id === state.selectedRecommendationId) || available[0] || null;
 }
 
-function selectedInventoryItem() {
-  return inventory.find((item) => item.id === state.selectedInventoryId && item.category === "Component") || inventory.find((item) => item.category === "Component");
+function recommendationForInventoryItem(item) {
+  return allRecommendations().find((recommendation) => recommendation.itemId === item.id);
 }
 
-function createdOrderDraft() {
-  return {
-    id: state.createOrderId || "PO-1092",
-    customer: state.createCustomer || "Not recorded",
-    model: state.createPump && state.createPump !== "Select pump model" ? state.createPump : "Custom pump model",
-    qty: state.createQty || "1",
-    ordered: formatDateLabel(state.createOrderedDate),
-    date: formatDateLabel(state.createDate),
-    notes: state.createNotes || "No notes added",
-  };
+function selectedInventoryItem() {
+  return inventory.find((item) => item.id === state.selectedInventoryId && item.category === "Component") || inventory.find((item) => item.category === "Component");
 }
 
 function formatDateLabel(value) {
@@ -168,6 +399,19 @@ function formatDateLabel(value) {
   const parsed = new Date(`${value}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatDateCompact(value) {
+  if (!value) return "Not set";
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function addDaysIso(iso, days) {
+  const parsed = new Date(`${iso}T00:00:00`);
+  parsed.setDate(parsed.getDate() + days);
+  return parsed.toISOString().slice(0, 10);
 }
 
 function normalized(value) {
@@ -209,18 +453,57 @@ function dropdown(id, value, options) {
 function createOrderFormFields() {
   ensureCreateOrderDefaults();
   return `
+    ${state.createOrderError ? `<div class="field-error">${state.createOrderError}</div>` : ""}
     <div class="field"><label>Order ID</label><input data-create-field="orderId" value="${state.createOrderId}" /></div>
     <div class="field"><label>Customer name</label><input data-create-field="customer" value="${state.createCustomer}" placeholder="Enter customer name" /></div>
+    <div class="field"><label>Customer type</label>${dropdown("createCustomerType", state.createCustomerType, customerTypeOptions())}</div>
     <div class="field"><label>Ordered date</label><input type="date" data-create-field="orderedDate" value="${state.createOrderedDate}" /></div>
     <div class="field"><label>Required date</label><input type="date" data-create-field="date" value="${state.createDate}" /></div>
     <div class="field"><label>Pump model</label>${dropdown("createPump", state.createPump, pumpModelOptions())}</div>
     <div class="field"><label>Quantity</label><input data-create-field="qty" value="${state.createQty}" placeholder="Enter quantity" /></div>
     <div class="field wide"><label>Notes</label><textarea data-create-field="notes" placeholder="Add production notes">${state.createNotes}</textarea></div>
+    <p class="sub field-hint">${customerUrgencyNotes[state.createCustomerType] || ""}</p>
+    ${componentEditorFields()}
   `;
 }
 
-function search(id, placeholder) {
-  return `<input id="${id}" class="search-input" type="search" placeholder="${placeholder}" />`;
+function componentInventoryOptions() {
+  return inventory.filter((item) => item.category === "Component").map((item) => item.name);
+}
+
+function componentDropdown(index, itemId) {
+  const item = itemId ? inventoryItemById(itemId) : null;
+  const value = item ? item.name : "Select component";
+  return dropdown(`createComponent-${index}`, value, ["Select component", ...componentInventoryOptions()]);
+}
+
+function componentEditorFields() {
+  const components = state.createComponents || [];
+  const rows = components
+    .map(
+      (component, index) => `
+        <div class="component-row">
+          <div class="field"><label>Component</label>${componentDropdown(index, component.itemId)}</div>
+          <div class="field"><label>Qty required</label><input data-component-qty="${index}" value="${component.required ?? ""}" placeholder="Qty" /></div>
+          <button type="button" class="button secondary small" data-remove-component="${index}">Remove</button>
+        </div>
+      `
+    )
+    .join("");
+  return `
+    <div class="component-editor">
+      <div class="component-editor-head">
+        <label>Components required</label>
+        <button type="button" class="button secondary small" data-action="add-component">Add component</button>
+      </div>
+      <p class="sub">Defaults are suggested from the pump model. Add, remove, or adjust quantities as needed.</p>
+      ${rows || `<p class="sub component-editor-empty">No components added yet. This order will always show as Ready.</p>`}
+    </div>
+  `;
+}
+
+function search(id, placeholder, value = "") {
+  return `<input id="${id}" class="search-input" type="search" placeholder="${placeholder}" value="${value}" />`;
 }
 
 function toolbarField(label, control, wide = false) {
@@ -234,10 +517,10 @@ function pageMeta() {
     inventory: ["Inventory", "Check available parts and stock levels"],
     recommendations: ["Purchase Recommendations", "Items to purchase to unblock production orders"],
     requests: ["Purchase Requests", "Manage active purchase requests"],
+    customers: ["Customers", "Review customer order history and context"],
     "create-order": ["Create Production Order", "Add a new internal production order"],
     "order-created": ["Order Created", "Production order created"],
     readiness: ["Order Readiness", "Automatic inventory result for this order"],
-    "readiness-ready": ["Order Readiness", "Automatic inventory result for this order"],
     "release-success": ["Release Complete", "Order released to assembly"],
     "no-issues": ["No Issues", "No blocked orders or critical shortages"],
   };
@@ -259,6 +542,7 @@ function shell(content) {
           ${navLink("Inventory", "inventory")}
           ${navLink("Purchasing", "recommendations")}
           ${navLink("Requests", "requests")}
+          ${navLink("Customers", "customers")}
         </nav>
       </aside>
       <main class="main-content">
@@ -287,10 +571,11 @@ function navLink(label, route) {
 function activeNav(route) {
   const current = state.route;
   if (route === "dashboard" && current === "dashboard") return "active";
-  if (route === "orders" && ["orders", "create-order", "order-created", "readiness", "readiness-ready", "release-success"].includes(current)) return "active";
+  if (route === "orders" && ["orders", "create-order", "order-created", "readiness", "release-success"].includes(current)) return "active";
   if (route === "inventory" && current === "inventory") return "active";
   if (route === "recommendations" && current === "recommendations") return "active";
   if (route === "requests" && current === "requests") return "active";
+  if (route === "customers" && current === "customers") return "active";
   return "";
 }
 
@@ -304,20 +589,9 @@ function header(title, subtitle, action = "") {
 }
 
 function productionOrdersWithState() {
-  const list = orders.map((order) => ({ ...order }));
-  if (state.orderCreated) {
-    const draft = createdOrderDraft();
-    list.push({ id: draft.id, customer: draft.customer, model: draft.model, qty: draft.qty, ordered: draft.ordered, date: draft.date, status: "Ready", blocking: "", notes: draft.notes });
-  }
-  return list.map((order) => {
-    let next = { ...order };
-    if (next.id === state.releasedOrderId) next = { ...next, status: "In production", blocking: "" };
-    if (next.id === "PO-1048" && state.readinessResolved) next = { ...next, status: "Ready", blocking: "" };
-    if (state.orderStatusOverrides[next.id]) {
-      next = { ...next, status: state.orderStatusOverrides[next.id] };
-      if (next.status !== "Blocked") next.blocking = "";
-    }
-    return next;
+  return [...orders, ...state.createdOrders].map((order) => {
+    const status = computedOrderStatus(order);
+    return { ...order, status, blocking: status === "Blocked" ? blockingSummary(order) : "" };
   });
 }
 
@@ -332,14 +606,41 @@ function finishedOrders() {
   return [...newlyFinished, ...completedOrders];
 }
 
+function allCustomers() {
+  const byName = new Map();
+  [...currentOrders(), ...finishedOrders()].forEach((order) => {
+    if (!order.customer) return;
+    if (!byName.has(order.customer)) {
+      byName.set(order.customer, { name: order.customer, customerType: order.customerType || "Commercial", orders: [] });
+    }
+    byName.get(order.customer).orders.push(order);
+  });
+  return Array.from(byName.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function customerSummary(customer) {
+  const active = customer.orders.filter((order) => order.status !== "Finished");
+  return {
+    active: active.length,
+    blocked: active.filter((order) => order.status === "Blocked").length,
+    finished: customer.orders.length - active.length,
+  };
+}
+
 function dashboard() {
   const list = currentOrders();
   const inProduction = list.filter((o) => o.status === "In production");
-  const ready = list.filter((o) => o.status === "Ready");
+  const ready = list.filter((o) => o.status === "Ready to build");
   const blocked = list.filter((o) => o.status === "Blocked");
-  const low = inventory.filter((i) => ["Low stock", "Out of stock"].includes(i.status));
-  const statusRank = { "In production": 0, Ready: 1, Blocked: 2 };
-  const dashboardOrders = [...list].sort((a, b) => (statusRank[a.status] ?? 3) - (statusRank[b.status] ?? 3)).slice(0, 5);
+  const low = inventory.filter((i) => ["Low stock", "Out of stock"].includes(inventoryStockStatus(i)));
+  const statusRank = { Blocked: 0, "In production": 1, "Ready to build": 2 };
+  const dashboardOrders = [...list]
+    .sort((a, b) => {
+      const statusDelta = (statusRank[a.status] ?? 3) - (statusRank[b.status] ?? 3);
+      if (statusDelta !== 0) return statusDelta;
+      return orderUrgencyWeight(b) - orderUrgencyWeight(a);
+    })
+    .slice(0, 5);
   const receiptDue = currentPurchaseRequests()
     .filter((request) => ["Pending", "Partially received"].includes(requestStatus(request)))
     .slice(0, 3);
@@ -347,10 +648,10 @@ function dashboard() {
   return shell(`
     ${header("Dashboard", "Production readiness and inventory visibility")}
     <section class="grid summary">
-      <article class="card metric"><span>In production</span><strong>${inProduction.length}</strong><small>Currently being built</small></article>
-      <article class="card metric"><span>Ready</span><strong>${ready.length}</strong><small>Can start production</small></article>
-      <article class="card metric emphasis"><span>Blocked</span><strong>${blocked.length}</strong><small>Need inventory action</small></article>
-      <article class="card metric"><span>Purchase requests pending</span><strong>${currentPurchaseRequests().filter((r) => requestStatus(r) === "Pending").length}</strong><small>Awaiting receipt</small></article>
+      <article class="card metric clickable" data-route="orders" data-status-filter="In production"><span>In production</span><strong>${inProduction.length}</strong><small>Currently being built</small></article>
+      <article class="card metric clickable" data-route="orders" data-status-filter="Ready to build"><span>Ready to build</span><strong>${ready.length}</strong><small>All components in stock</small></article>
+      <article class="card metric emphasis clickable" data-route="orders" data-status-filter="Blocked"><span>Blocked</span><strong>${blocked.length}</strong><small>Need inventory action</small></article>
+      <article class="card metric clickable" data-route="requests"><span>Purchase requests pending</span><strong>${currentPurchaseRequests().filter((r) => requestStatus(r) === "Pending").length}</strong><small>Awaiting receipt</small></article>
     </section>
     <section class="two-col">
       <article class="card">
@@ -384,8 +685,10 @@ function dashboard() {
               <div class="detail-list">
                 <div class="full"><span>Pump model</span><strong>${selectedDashboardOrder.model}</strong></div>
                 <div><span>Status</span>${badge(selectedDashboardOrder.status)}</div>
+                <div><span>Customer type</span><strong>${selectedDashboardOrder.customerType || "Commercial"}</strong></div>
                 <div><span>Ordered date</span><strong>${selectedDashboardOrder.ordered || "Today"}</strong></div>
                 <div><span>Required date</span><strong>${selectedDashboardOrder.date}</strong></div>
+                ${selectedDashboardOrder.status === "Blocked" && orderExpectedReadyLabel(selectedDashboardOrder) ? `<div class="full"><span>Expected ready</span><strong>${orderExpectedReadyLabel(selectedDashboardOrder)}</strong></div>` : ""}
               </div>`
             : `<p class="sub">No order selected</p>`
         }
@@ -402,8 +705,7 @@ function dashboard() {
                 .slice(0, 3)
                 .map((item) => {
                   const rec = recommendationForInventoryItem(item);
-                  const amount = state.requestReceived && item.id === "seal-kit" ? item.updatedOnHand : item.onHand;
-                  return `<tr data-inventory="${item.id}"><td>${item.name}</td><td>${amount}</td><td>${rec ? rec.required : item.reorder}</td><td>${badge(item.status)}</td></tr>`;
+                  return `<tr data-inventory="${item.id}"><td>${item.name}</td><td>${item.onHand}</td><td>${rec ? rec.required : item.reorder}</td><td>${badge(inventoryStockStatus(item))}</td></tr>`;
                 })
                 .join("")}
             </tbody>
@@ -414,10 +716,10 @@ function dashboard() {
         <div class="panel-head"><div><h2>Inventory Receipts Due</h2><p>Requested parts still waiting to arrive</p></div></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Item</th><th>Remaining</th><th>Status</th></tr></thead>
+            <thead><tr><th>Item</th><th>Remaining</th><th>Status</th><th>Expected</th></tr></thead>
             <tbody>
               ${receiptDue
-                .map((request) => `<tr data-request="${request.id}"><td>${request.item}</td><td>${remainingQty(request)}</td><td>${compactStatusBadge(requestStatus(request))}</td></tr>`)
+                .map((request) => `<tr data-request="${request.id}"><td>${request.item}</td><td>${remainingQty(request)}</td><td>${compactStatusBadge(requestStatus(request))}</td><td>${request.expectedDate ? formatDateCompact(request.expectedDate) : "Not set"}</td></tr>`)
                 .join("")}
             </tbody>
           </table>
@@ -428,10 +730,12 @@ function dashboard() {
 }
 
 function ordersPage() {
+  const orderSearch = state.orderSearch.trim().toLowerCase();
   const orderList = currentOrders().filter((o) => {
     const statusMatch = state.statusFilter === "All" || o.status === state.statusFilter;
     const pumpMatch = state.pumpFilter === "All" || o.model === state.pumpFilter;
-    return statusMatch && pumpMatch;
+    const searchMatch = !orderSearch || o.id.toLowerCase().includes(orderSearch) || o.model.toLowerCase().includes(orderSearch);
+    return statusMatch && pumpMatch && searchMatch;
   });
   const finishedList = finishedOrders();
   const selectedOrder = currentOrders().find((o) => o.id === state.selectedOrderId) || orderList[0] || currentOrders()[0];
@@ -442,8 +746,8 @@ function ordersPage() {
         <article class="card">
           <div class="panel-head"><div><h2>Order List</h2><p>Search and filter active production orders</p></div><button class="button" data-modal="create-production-order">Create production order</button></div>
           <div class="toolbar orders-toolbar">
-            ${toolbarField("Search", search("order-search", "Search by order ID or pump model"), true)}
-            ${toolbarField("Status", dropdown("statusFilter", state.statusFilter, ["All", "Ready", "Blocked", "In production"]))}
+            ${toolbarField("Search", search("order-search", "Search by order ID or pump model", state.orderSearch), true)}
+            ${toolbarField("Status", dropdown("statusFilter", state.statusFilter, ["All", "Ready to build", "Blocked", "In production"]))}
             ${toolbarField("Pump model", dropdown("pumpFilter", state.pumpFilter, ["All", "Pump A-12", "Pump B-20", "Pump C-05", "Pump D-10"]))}
             <button class="button secondary" data-action="reset-order-filters">Reset filters</button>
           </div>
@@ -451,15 +755,19 @@ function ordersPage() {
             <table>
               <thead><tr><th>Order ID</th><th>Pump model</th><th>Quantity</th><th>Required date</th><th>Status</th></tr></thead>
               <tbody>
-                ${orderList
-                  .map(
-                    (o) =>
-                      `<tr class="${selectedOrder && o.id === selectedOrder.id ? "selected" : ""}" data-order-select="${o.id}"><td>${o.id}</td><td>${o.model}</td><td>${o.qty}</td><td>${o.date}</td><td>${badge(o.status)}</td></tr>`
-                  )
-                  .join("")}
+                ${
+                  orderList.length
+                    ? orderList
+                        .map(
+                          (o) =>
+                            `<tr class="${selectedOrder && o.id === selectedOrder.id ? "selected" : ""}" data-order-select="${o.id}"><td>${o.id}</td><td>${o.model}</td><td>${o.qty}</td><td>${o.date}</td><td>${badge(o.status)}</td></tr>`
+                        )
+                        .join("")
+                    : `<tr><td colspan="5">No orders match these filters.</td></tr>`
+                }
               </tbody>
             </table>
-            <div class="footer-row"><span>Rows per page: 25</span><span>1-${orderList.length} of ${orderList.length}</span></div>
+            <div class="footer-row"><span>Rows per page: 25</span><span>${orderList.length ? `1-${orderList.length} of ${orderList.length}` : "0 of 0"}</span></div>
           </div>
         </article>
         <article class="card">
@@ -485,21 +793,24 @@ function ordersPage() {
             ? `<p class="sub">Selected order: ${selectedOrder.id}</p>
               <div class="detail-list">
                 <div class="full"><span>Customer</span><strong>${selectedOrder.customer || "Not recorded"}</strong></div>
-                <div class="full"><span>Pump model</span><strong>${selectedOrder.model}</strong></div>
+                <div><span>Pump model</span><strong>${selectedOrder.model}</strong></div>
+                <div><span>Customer type</span><strong>${selectedOrder.customerType || "Commercial"}</strong></div>
                 <div><span>Quantity</span><strong>${selectedOrder.qty}</strong></div>
                 <div><span>Status</span>${badge(selectedOrder.status)}</div>
                 <div><span>Ordered date</span><strong>${selectedOrder.ordered || "Today"}</strong></div>
                 <div><span>Required date</span><strong>${selectedOrder.date}</strong></div>
-                <div class="full"><span>Notes</span><strong>${selectedOrder.notes || "No notes added"}</strong></div>
               </div>
               <div class="divider"></div>
-              <h3>Status action</h3>
+              <h3>Next step</h3>
               ${
-                selectedOrder.status === "Ready"
-                  ? `<p>Start work on this order.</p><button class="button full" data-order-status="In production" data-order="${selectedOrder.id}">Move to in production</button>`
+                selectedOrder.status === "Ready to build"
+                  ? `<p>Components are in stock. Releasing takes them out of inventory.</p><button class="button full" data-order-status="In production" data-order="${selectedOrder.id}">Move to in production</button>`
                   : selectedOrder.status === "In production"
-                    ? `<p>Use this when assembly is complete.</p><button class="button full" data-order-status="Finished" data-order="${selectedOrder.id}">Mark as finished</button>`
-                    : `<p>This order is blocked until missing inventory is resolved.</p>`
+                    ? `<p>Being built. Mark it finished once it is ready to ship.</p>
+                      <button class="button full" data-order-status="Finished" data-order="${selectedOrder.id}">Mark as finished</button>
+                      <p class="sub" style="margin-top: 16px;">Returning this order puts its components back into stock.</p>
+                      <button class="button secondary full" data-return-to-queue data-order="${selectedOrder.id}">Return to stock</button>`
+                    : `<p>This order is blocked until missing inventory is resolved.${orderExpectedReadyLabel(selectedOrder) ? ` Expected by ${orderExpectedReadyLabel(selectedOrder)}.` : ""}</p><button class="button full" data-modal="create-purchase-request" data-rec-action="${selectedOrder.id}::${(orderShortages(selectedOrder).find((c) => c.shortage > 0) || {}).itemId || ""}">Create purchase request</button>`
               }`
             : `<p>No order selected.</p>`
         }
@@ -508,59 +819,71 @@ function ordersPage() {
   `);
 }
 
-function readinessPage(ready = false) {
-  const resolved = ready || state.readinessResolved;
-  const status = resolved ? "Ready" : "Blocked";
-  const components = resolved
-    ? [
-        ["Seal Kit SK-08", 12, 12, 0, "Ready"],
-        ["Impeller 4in", 8, 9, 0, "Ready"],
-        ["Fastener Set FS-20", 24, 30, 0, "Ready"],
-      ]
-    : [
-        ["Seal Kit SK-08", 12, 4, 8, "Blocked"],
-        ["Impeller 4in", 8, 9, 0, "Ready"],
-        ["Fastener Set FS-20", 24, 30, 0, "Ready"],
-      ];
+function readinessPage() {
+  const order = currentOrders().find((o) => o.id === state.selectedOrderId) || currentOrders()[0];
+  const shortages = order ? orderShortages(order) : [];
+  const blocked = shortages.some((c) => c.shortage > 0);
+  const criticalBlock = shortages.some((c) => c.shortage > 0 && c.critical);
+  const status = blocked ? "Blocked" : "Ready to build";
+  const firstShortfall = shortages.find((c) => c.shortage > 0 && c.critical) || shortages.find((c) => c.shortage > 0);
+  const expectedReady = order && blocked ? orderExpectedReadyLabel(order) : null;
   return shell(`
     ${header("Order Readiness", "Automatic inventory result for this production order", button("Back to orders", "orders", "secondary"))}
     <section class="card pad status-panel">
       <div>
         <p class="mini-label">Order</p>
-        <h2>${state.selectedOrderId}</h2>
-        <p class="sub">Pump A-12 - Quantity 12 - Required Jun 12, 2026</p>
+        <h2>${order ? order.id : "No order selected"}</h2>
+        <p class="sub">${order ? `${order.model} - Quantity ${order.qty} - Required ${order.date}` : ""}</p>
       </div>
       <div>
         <p class="mini-label">Readiness status</p>
-        <div class="status-word ${resolved ? "ready-text" : "blocked-text"}">${status}</div>
-        <p class="sub">${resolved ? "All required components are available." : "Release is unavailable until the shortage is resolved."}</p>
+        <div class="status-word ${blocked ? "blocked-text" : "ready-text"}">${status}</div>
+        <p class="sub">${
+          blocked
+            ? `${criticalBlock ? "Blocked on a safety-critical component — cannot ship without it. " : ""}Release is unavailable until the shortage is resolved.${expectedReady ? ` Expected by ${expectedReady}.` : ""}`
+            : "All required components are available."
+        }</p>
       </div>
-      <div>${resolved ? button("Release to production", "release-success") : `<button class="button" data-modal="create-purchase-request">Create purchase request</button>`}</div>
+      <div>${
+        blocked
+          ? `<button class="button" data-modal="create-purchase-request" data-rec-action="${order.id}::${firstShortfall?.itemId || ""}">Create purchase request</button>`
+          : button("Release to production", "release-success")
+      }</div>
     </section>
     <section class="card">
-      <div class="panel-head"><div><h2>Component Availability</h2><p>Only components with shortages block the order release.</p></div></div>
+      <div class="panel-head"><div><h2>Component Availability</h2><p>Critical components are safety- or performance-critical if missing; only shortages block release.</p></div></div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Component</th><th>Required quantity</th><th>Available quantity</th><th>Shortage quantity</th><th>Status</th></tr></thead>
-          <tbody>${components.map((c, index) => `<tr class="${!resolved && index === 0 ? "selected" : ""}"><td>${c[0]}</td><td>${c[1]}</td><td>${c[2]}</td><td>${c[3]}</td><td>${badge(c[4])}</td></tr>`).join("")}</tbody>
+          <tbody>${
+            shortages.length
+              ? shortages
+                  .map(
+                    (c) =>
+                      `<tr class="${c.shortage > 0 ? "selected" : ""}"><td>${c.item?.name || c.itemId}</td><td>${c.required}</td><td>${c.available}</td><td>${c.shortage}</td><td>${badge(c.shortage > 0 ? (c.critical ? "Critical" : "Blocked") : "Ready")}</td></tr>`
+                  )
+                  .join("")
+              : `<tr><td colspan="5">No components recorded for this order.</td></tr>`
+          }</tbody>
         </table>
       </div>
     </section>
     <section class="card pad" style="margin-top: 28px;">
       <h2>Recommended Action</h2>
-      <p>${resolved ? `Release ${state.selectedOrderId} to production.` : "Create purchase request for 8 missing Seal Kit SK-08 units."}</p>
+      <p>${blocked ? `Create purchase request for ${firstShortfall.shortage} missing ${firstShortfall.item?.name || ""} units.${firstShortfall.critical ? " This is a safety-critical component — prioritize this request." : ""}` : `Release ${order ? order.id : "this order"} to production.`}</p>
     </section>
   `);
 }
 
 function inventoryPage() {
+  const inventorySearch = state.inventorySearch.trim().toLowerCase();
   const items = inventory.filter((item) => {
-    const statusMatch = state.stockFilter === "All" || item.status === state.stockFilter;
-    return statusMatch;
+    const statusMatch = state.stockFilter === "All" || inventoryStockStatus(item) === state.stockFilter;
+    const searchMatch = !inventorySearch || item.name.toLowerCase().includes(inventorySearch);
+    return statusMatch && searchMatch;
   });
   const componentItems = items.filter((item) => item.category === "Component");
   const selected = componentItems.find((i) => i.id === state.selectedInventoryId) || componentItems[0] || inventory.find((item) => item.category === "Component");
-  const onHand = state.requestReceived && selected.id === "seal-kit" ? selected.updatedOnHand : selected.onHand;
   const selectedRecommendation = recommendationForInventoryItem(selected);
   return shell(`
     ${header("Inventory", "Check available parts and stock levels for production planning")}
@@ -569,17 +892,18 @@ function inventoryPage() {
         <article class="card">
           <div class="panel-head"><div><h2>Component Inventory</h2></div><span class="panel-meta">${componentItems.length} components</span></div>
           <div class="toolbar inventory-toolbar">
-            ${toolbarField("Search", search("inventory-search", "Search by item name or part number"), true)}
+            ${toolbarField("Search", search("inventory-search", "Search by item name or part number", state.inventorySearch), true)}
             ${toolbarField("Stock status", dropdown("stockFilter", state.stockFilter, ["All", "In stock", "Low stock", "Out of stock"]))}
             <button class="button secondary" data-action="reset-inventory-filters">Reset filters</button>
           </div>
           <div class="table-wrap">
             <table>
               <thead><tr><th>Item name</th><th>Category</th><th>On hand</th><th>Minimum stock</th><th>Stock status</th></tr></thead>
-              <tbody>${componentItems.map((item) => {
-                const amount = state.requestReceived && item.id === "seal-kit" ? item.updatedOnHand : item.onHand;
-                return `<tr class="${item.id === selected.id ? "selected" : ""}" data-inventory="${item.id}"><td>${item.name}</td><td>${item.category}</td><td>${amount}</td><td>${item.reorder}</td><td>${badge(item.status)}</td></tr>`;
-              }).join("")}</tbody>
+              <tbody>${
+                componentItems.length
+                  ? componentItems.map((item) => `<tr class="${selected && item.id === selected.id ? "selected" : ""}" data-inventory="${item.id}"><td>${item.name}</td><td>${item.category}</td><td>${item.onHand}</td><td>${item.reorder}</td><td>${badge(inventoryStockStatus(item))}</td></tr>`).join("")
+                  : `<tr><td colspan="5">No items match these filters.</td></tr>`
+              }</tbody>
             </table>
           </div>
         </article>
@@ -632,12 +956,13 @@ function recommendationsPage() {
                 <div class="full"><span>Item name</span><strong>${selected.item}</strong></div>
                 <div><span>Affected order</span><strong>${selected.order}</strong></div>
                 <div><span>Priority</span>${badge(selected.priority)}</div>
+                <div><span>Criticality</span>${badge(selected.critical ? "Critical" : "Routine")}</div>
                 <div><span>Required</span><strong>${selected.required}</strong></div>
                 <div><span>Available</span><strong>${selected.available}</strong></div>
                 <div><span>Shortage</span><strong>${selected.shortage}</strong></div>
               </div>
               <p class="mini-label">Suggested action</p>
-              <p>Create purchase request for ${selected.shortage} missing units.</p>
+              <p>Create purchase request for ${selected.shortage} missing units.${selected.critical ? " This is a safety-critical part — do not defer." : ""}</p>
               <button class="button full" data-modal="create-purchase-request" data-rec-action="${selected.id}">Create request</button>`
             : `<p class="sub">No recommendation selected</p>
               <p>All current recommendations already have purchase requests.</p>`
@@ -648,6 +973,9 @@ function recommendationsPage() {
 }
 
 function createOrderPage() {
+  const previewComponents = validCreateComponents();
+  const previewBlocked = orderShortages({ components: previewComponents }).some((c) => c.shortage > 0);
+  const previewStatus = previewBlocked ? "Blocked" : "Ready to build";
   return shell(`
     ${header("Create Production Order", "Add a new internal production order and calculate readiness automatically")}
     <section class="two-col">
@@ -660,26 +988,25 @@ function createOrderPage() {
       </article>
       <aside class="card side-panel">
         <h3>Order preview</h3>
-        <p class="sub">Inventory availability is calculated immediately after the order is created.</p>
-        <div class="detail-list"><div><span>Expected result</span>${badge("Ready")}</div><div><span>Next step</span><strong>Release if needed</strong></div></div>
+        <p class="sub">Inventory availability is calculated immediately from the components you list.</p>
+        <div class="detail-list"><div><span>Expected result</span>${badge(previewStatus)}</div><div><span>Next step</span><strong>${previewBlocked ? "Create purchase request" : "Release if needed"}</strong></div></div>
       </aside>
     </section>
   `);
 }
 
 function orderCreatedPage() {
-  state.orderCreated = true;
-  const draft = createdOrderDraft();
-  state.selectedOrderId = draft.id;
-  return successPage("Order Created", "Production order created", `Inventory was checked automatically and ${draft.id} is ready to release.`, [
-    ["Order ID", draft.id],
-    ["Customer", draft.customer],
-    ["Readiness result", badge("Ready")],
-    ["Pump model", draft.model],
-    ["Ordered date", draft.ordered],
-    ["Required date", draft.date],
+  const order = state.createdOrders.find((o) => o.id === state.selectedOrderId) || state.createdOrders[state.createdOrders.length - 1];
+  if (!order) return dashboard();
+  return successPage("Order Created", "Production order created", `Inventory was checked automatically and ${order.id} is ready to release.`, [
+    ["Order ID", order.id],
+    ["Customer", order.customer],
+    ["Readiness result", badge(computedOrderStatus(order))],
+    ["Pump model", order.model],
+    ["Ordered date", order.ordered],
+    ["Required date", order.date],
   ], [
-    ["View readiness result", "readiness-ready", ""],
+    ["View readiness result", "readiness", ""],
     ["View order list", "orders", "secondary"],
   ]);
 }
@@ -687,7 +1014,7 @@ function orderCreatedPage() {
 function requestsPage() {
   const reopenedRequests = requestHistory
     .filter((r) => state.reopenedHistoryIds.includes(r.id))
-    .map((r) => ({ ...r, status: "Pending", requestedOn: r.completed, supplier: "Manual review" }));
+    .map((r) => ({ ...r, status: "Pending", requestedOn: r.completed, supplier: "Not assigned" }));
   const openRequests = [...currentPurchaseRequests(), ...reopenedRequests];
   const activeRequests = openRequests.filter((r) => requestStatus(r) === "Pending");
   const partialRequests = openRequests.filter((r) => requestStatus(r) === "Partially received");
@@ -715,8 +1042,8 @@ function requestsPage() {
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Request ID</th><th>Item</th><th>Related order</th><th>Qty</th><th>Priority</th><th>Requested on</th></tr></thead>
-              <tbody>${activeRequests.map((r) => `<tr class="${selected && r.id === selected.id ? "selected" : ""}" data-request="${r.id}"><td>${r.id}</td><td>${r.item}</td><td>${r.order}</td><td>${r.qty}</td><td>${badge(r.priority)}</td><td>${r.requestedOn}</td></tr>`).join("")}</tbody>
+              <thead><tr><th>Request ID</th><th>Item</th><th>Related order</th><th>Qty</th><th>Priority</th><th>Expected</th></tr></thead>
+              <tbody>${activeRequests.map((r) => `<tr class="${selected && r.id === selected.id ? "selected" : ""}" data-request="${r.id}"><td>${r.id}</td><td>${r.item}</td><td>${r.order}</td><td>${r.qty}</td><td>${badge(r.priority)}</td><td>${r.expectedDate ? formatDateLabel(r.expectedDate) : "Not set"}</td></tr>`).join("")}</tbody>
             </table>
           </div>
         </article>
@@ -724,8 +1051,8 @@ function requestsPage() {
           <div class="panel-head"><div><h2>Partially Received</h2><p>Requests with some parts received and a remaining quantity still open</p></div><span class="panel-meta">${partialRequests.length} partial</span></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Request ID</th><th>Item</th><th>Ordered</th><th>Received</th><th>Remaining</th><th>Status</th></tr></thead>
-              <tbody>${partialRequests.map((r) => `<tr class="${selected && r.id === selected.id ? "selected" : ""}" data-request="${r.id}"><td>${r.id}</td><td>${r.item}</td><td>${orderedQty(r)}</td><td>${receivedQty(r)}</td><td>${remainingQty(r)}</td><td>${compactStatusBadge(requestStatus(r))}</td></tr>`).join("")}</tbody>
+              <thead><tr><th>Request ID</th><th>Item</th><th>Received</th><th>Remaining</th><th>Status</th><th>Expected</th></tr></thead>
+              <tbody>${partialRequests.map((r) => `<tr class="${selected && r.id === selected.id ? "selected" : ""}" data-request="${r.id}"><td>${r.id}</td><td>${r.item}</td><td>${receivedQty(r)}</td><td>${remainingQty(r)}</td><td>${compactStatusBadge(requestStatus(r))}</td><td>${r.expectedDate ? formatDateLabel(r.expectedDate) : "Not set"}</td></tr>`).join("")}</tbody>
             </table>
           </div>
         </article>
@@ -749,6 +1076,8 @@ function requestsPage() {
                 <div><span>Received</span><strong>${receivedQty(selected)}</strong></div>
                 <div><span>Remaining</span><strong>${remainingQty(selected)}</strong></div>
                 <div><span>Status</span>${badge(requestStatus(selected))}</div>
+                <div><span>Requested on</span><strong>${selected.requestedOn}</strong></div>
+                <div><span>Expected</span><strong>${selected.expectedDate ? formatDateLabel(selected.expectedDate) : "Not set"}</strong></div>
                 <div class="full"><span>Supplier</span><strong>${selected.supplier}</strong></div>
               </div>
               <p class="mini-label">Next step</p>
@@ -763,6 +1092,75 @@ function requestsPage() {
                 <div class="form-actions"><button class="button secondary" data-action="discard-history-edit">Discard</button><button class="button" data-action="save-history-edit">Save update</button></div>`
             : `<p class="sub">No active request selected</p>
               <p>Select a recently completed request to review or update its history.</p>`
+        }
+      </aside>
+    </section>
+  `);
+}
+
+function customersPage() {
+  const customerSearch = state.customerSearch.trim().toLowerCase();
+  const customers = allCustomers().filter((customer) => !customerSearch || customer.name.toLowerCase().includes(customerSearch));
+  const selected = customers.find((customer) => customer.name === state.selectedCustomer) || customers[0] || null;
+  const selectedOrders = selected
+    ? [...selected.orders].sort((a, b) => (a.status === "Finished" ? 1 : 0) - (b.status === "Finished" ? 1 : 0))
+    : [];
+  return shell(`
+    ${header("Customers", "Review customer order history and context")}
+    <section class="two-col-wide customers-layout">
+      <article class="card">
+        <div class="panel-head"><div><h2>Customer List</h2><p>Every customer with an active or completed order</p></div><span class="panel-meta">${customers.length} customers</span></div>
+        <div class="toolbar">
+          ${toolbarField("Search", search("customer-search", "Search by customer name", state.customerSearch), true)}
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Customer</th><th>Type</th><th>Active orders</th><th>Blocked</th></tr></thead>
+            <tbody>${
+              customers.length
+                ? customers
+                    .map((customer) => {
+                      const summary = customerSummary(customer);
+                      return `<tr class="${selected && customer.name === selected.name ? "selected" : ""}" data-customer="${customer.name}"><td>${customer.name}</td><td>${customer.customerType}</td><td>${summary.active}</td><td>${summary.blocked}</td></tr>`;
+                    })
+                    .join("")
+                : `<tr><td colspan="4">No customers match this search.</td></tr>`
+            }</tbody>
+          </table>
+        </div>
+      </article>
+      <aside class="card side-panel">
+        <h3>Customer Detail</h3>
+        ${
+          selected
+            ? `<p class="sub">Selected customer: ${selected.name}</p>
+              <div class="detail-list">
+                <div><span>Customer type</span><strong>${selected.customerType}</strong></div>
+                <div><span>Active orders</span><strong>${customerSummary(selected).active}</strong></div>
+                <div><span>Blocked</span><strong>${customerSummary(selected).blocked}</strong></div>
+                <div><span>Finished orders</span><strong>${customerSummary(selected).finished}</strong></div>
+                <div class="full"><span>Delivery context</span><strong>${customerUrgencyNotes[selected.customerType] || customerUrgencyNotes.Commercial}</strong></div>
+              </div>
+              <div class="divider"></div>
+              <h3>Order history</h3>
+              <div class="history-list">${selectedOrders
+                .map((order) => {
+                  const inner = `
+                    <div class="history-row-head">
+                      <strong>${order.id}</strong>
+                      ${badge(order.status)}
+                    </div>
+                    <small>${order.model} · Qty ${order.qty}</small>
+                    <div class="history-row-dates">
+                      <div><span>Ordered</span><strong>${order.ordered || "Not set"}</strong></div>
+                      <div><span>Required</span><strong>${order.date || "Not set"}</strong></div>
+                    </div>`;
+                  return order.status === "Finished"
+                    ? `<div class="history-row">${inner}</div>`
+                    : `<div class="history-row" data-row-route="orders" data-order="${order.id}">${inner}</div>`;
+                })
+                .join("")}</div>`
+            : `<p class="sub">No customers found.</p>`
         }
       </aside>
     </section>
@@ -791,9 +1189,10 @@ function remainingQty(request) {
 }
 
 function releaseSuccessPage() {
-  state.releasedOrderId = state.selectedOrderId;
-  return successPage("Released to Production", "Order released to assembly", `${state.selectedOrderId} has been released to assembly and is now in production.`, [
-    ["Order ID", state.selectedOrderId],
+  const orderId = state.selectedOrderId;
+  releaseOrder(orderId);
+  return successPage("Released to Production", "Order released to assembly", `${orderId} has been released to assembly and is now in production.`, [
+    ["Order ID", orderId],
     ["Status", badge("In production")],
     ["Next team", "Assembly"],
   ], [
@@ -857,7 +1256,8 @@ function modalLayer() {
         </div>
       `;
   } else if (state.activeModal === "create-purchase-request") {
-    const rec = selectedAvailableRecommendation() || recommendations.find((r) => r.id === state.selectedRecommendationId) || recommendations[0];
+    const recs = allRecommendations();
+    const rec = selectedAvailableRecommendation() || recs.find((r) => r.id === state.selectedRecommendationId) || recs[0] || { id: null, itemId: null, item: "", order: "Not linked", shortage: "", priority: "Medium" };
     const inventoryItem = selectedInventoryItem();
     const inventoryRecommendation = inventoryItem ? recommendationForInventoryItem(inventoryItem) : null;
     const isManualRequest = state.createRequestMode === "manual";
@@ -865,7 +1265,7 @@ function modalLayer() {
     const savedPriority = state.priority === "Select priority" ? "" : state.priority;
     const currentPriority = isManualRequest ? state.priority || "Select priority" : isInventoryRequest ? savedPriority || inventoryRecommendation?.priority || "Low" : savedPriority || rec.priority;
     const currentSupplier = isManualRequest ? state.supplier || "Select supplier" : state.supplier === "Select supplier" ? "Preferred supplier" : state.supplier || "Preferred supplier";
-    const supplierOptions = isManualRequest ? ["Select supplier", "Preferred supplier", "Alternate supplier", "Manual review"] : ["Preferred supplier", "Alternate supplier", "Manual review"];
+    const supplierOptions = isManualRequest ? ["Select supplier", "Preferred supplier", "Alternate supplier"] : ["Preferred supplier", "Alternate supplier", "Not assigned"];
     const priorityOptions = isManualRequest ? ["Select priority", "High", "Medium", "Low"] : ["High", "Medium", "Low"];
     const itemValue = isManualRequest ? "" : isInventoryRequest ? inventoryItem?.name || "" : rec.item;
     const qtyValue = isManualRequest ? "" : isInventoryRequest ? inventoryRecommendation?.shortage || "" : rec.shortage;
@@ -874,6 +1274,7 @@ function modalLayer() {
       ? `Please confirm availability and earliest delivery date for ${inventoryRecommendation.shortage} ${inventoryItem.name} units.`
       : `Request additional ${inventoryItem?.name || "inventory item"} for stock replenishment.`;
     const noteValue = isManualRequest ? "" : isInventoryRequest ? inventoryNote : requestNote;
+    const expectedDateValue = addDaysIso(appTodayIso, 7);
     content = `
         <div class="modal-card wide-modal">
           <div class="modal-head">
@@ -884,10 +1285,12 @@ function modalLayer() {
             <button class="modal-close" data-close-modal aria-label="Close modal">x</button>
           </div>
           <div class="modal-grid create-request-grid">
+            ${state.createRequestError ? `<div class="field-error">${state.createRequestError}</div>` : ""}
             <div class="field wide"><label>Item name</label><input data-create-request-field="item" value="${itemValue}" placeholder="Enter item name" /></div>
             <div class="field"><label>Quantity to order</label><input data-create-request-field="qty" value="${qtyValue}" placeholder="Enter quantity" /></div>
             <div class="field"><label>Supplier</label>${dropdown("supplier", currentSupplier, supplierOptions)}</div>
             <div class="field"><label>Priority</label>${dropdown("priority", currentPriority, priorityOptions)}</div>
+            <div class="field"><label>Expected delivery date</label><input type="date" data-create-request-field="expectedDate" value="${expectedDateValue}" /></div>
             <div class="field wide"><label>Supplier note or comments</label><textarea data-create-request-field="note" placeholder="Add supplier notes, delivery requirements, or approval context.">${noteValue}</textarea></div>
           </div>
           <div class="modal-actions">
@@ -931,7 +1334,8 @@ function modalLayer() {
             <div class="field"><label>Quantity to order</label><input data-edit-field="qty" value="${draft.qty}" /></div>
             <div class="field"><label>Related production order</label><input data-edit-field="order" value="${draft.order}" /></div>
             <div class="field"><label>Priority</label>${dropdown("editPriority", state.editPriority || draft.priority, ["High", "Medium", "Low"])}</div>
-            <div class="field"><label>Supplier</label>${dropdown("editSupplier", state.editSupplier || draft.supplier || "Manual review", ["Preferred supplier", "Alternate supplier", "Manual review"])}</div>
+            <div class="field"><label>Supplier</label>${dropdown("editSupplier", state.editSupplier || draft.supplier || "Not assigned", ["Preferred supplier", "Alternate supplier", "Not assigned"])}</div>
+            <div class="field"><label>Expected delivery date</label><input type="date" data-edit-field="expectedDate" value="${draft.expectedDate || ""}" /></div>
             <div class="field wide"><label>Supplier note</label><textarea data-edit-field="note">${draft.note || "Confirm lead time before submitting."}</textarea></div>
           </div>
           <div class="modal-actions">
@@ -1000,9 +1404,9 @@ function render() {
     recommendations: recommendationsPage,
     "create-order": createOrderPage,
     "order-created": orderCreatedPage,
-    readiness: () => readinessPage(false),
-    "readiness-ready": () => readinessPage(true),
+    readiness: readinessPage,
     requests: requestsPage,
+    customers: customersPage,
     "release-success": releaseSuccessPage,
     "no-issues": noIssuesPage,
   };
@@ -1016,20 +1420,35 @@ function routeTo(route) {
   window.scrollTo(0, 0);
 }
 
+function readCreateOrderFormInputs() {
+  const orderId = document.querySelector("[data-create-field='orderId']");
+  const customer = document.querySelector("[data-create-field='customer']");
+  const qty = document.querySelector("[data-create-field='qty']");
+  const orderedDate = document.querySelector("[data-create-field='orderedDate']");
+  const date = document.querySelector("[data-create-field='date']");
+  const notes = document.querySelector("[data-create-field='notes']");
+  state.createOrderId = orderId?.value.trim() || "";
+  state.createCustomer = customer?.value.trim() || "";
+  state.createQty = qty?.value.trim() || "";
+  state.createOrderedDate = orderedDate?.value.trim() || "";
+  state.createDate = date?.value.trim() || "";
+  state.createNotes = notes?.value.trim() || "";
+}
+
 document.addEventListener("click", (event) => {
   const option = event.target.closest("[data-dropdown-option]");
   if (option) {
     const key = option.dataset.dropdownOption;
-    state[key] = option.dataset.value;
-    if (state.activeModal && key === "createPump") {
-      const dropdownEl = option.closest(".dropdown");
-      const label = dropdownEl?.querySelector(".dropdown-trigger span:first-child");
-      if (label) label.textContent = option.dataset.value;
-      dropdownEl?.querySelectorAll(".dropdown-option").forEach((node) => {
-        node.classList.toggle("selected", node === option);
-      });
-      dropdownEl?.classList.remove("open");
+    if (key.startsWith("createComponent-")) {
+      const index = Number(key.slice("createComponent-".length));
+      const pickedItem = inventory.find((item) => item.name === option.dataset.value);
+      state.createComponents[index] = { ...state.createComponents[index], itemId: pickedItem ? pickedItem.id : null };
+      render();
       return;
+    }
+    state[key] = option.dataset.value;
+    if (key === "createPump") {
+      state.createComponents = defaultComponentsForModel(option.dataset.value);
     }
     render();
     return;
@@ -1057,8 +1476,12 @@ document.addEventListener("click", (event) => {
     if (state.activeModal === "create-production-order") {
       resetCreateOrderForm();
     }
+    if (state.activeModal === "create-purchase-request") {
+      state.createRequestError = "";
+    }
     const selectedRequest = findPurchaseRequest(state.selectedRequestId);
-    const selectedRecommendation = selectedAvailableRecommendation() || recommendations.find((r) => r.id === state.selectedRecommendationId) || recommendations[0];
+    const recs = allRecommendations();
+    const selectedRecommendation = selectedAvailableRecommendation() || recs.find((r) => r.id === state.selectedRecommendationId) || recs[0];
     if (state.activeModal === "create-purchase-request" && state.createRequestMode === "manual") {
       state.priority = "Select priority";
       state.supplier = "Select supplier";
@@ -1073,7 +1496,7 @@ document.addEventListener("click", (event) => {
     }
     if (state.activeModal === "edit-request" && selectedRequest) {
       state.editPriority = selectedRequest.priority;
-      state.editSupplier = selectedRequest.supplier || "Manual review";
+      state.editSupplier = selectedRequest.supplier || "Not assigned";
       state.editDraft = { ...selectedRequest };
     }
     if (state.activeModal === "receive-inventory" && selectedRequest) {
@@ -1089,6 +1512,7 @@ document.addEventListener("click", (event) => {
     state.editDraft = null;
     state.receiptDraft = null;
     state.createRequestMode = "recommendation";
+    state.createRequestError = "";
     render();
     return;
   }
@@ -1099,29 +1523,38 @@ document.addEventListener("click", (event) => {
     const isInventoryRequest = state.createRequestMode === "inventory";
     const inventoryItem = selectedInventoryItem();
     const inventoryRecommendation = inventoryItem ? recommendationForInventoryItem(inventoryItem) : null;
-    const rec = selectedAvailableRecommendation() || recommendations.find((r) => r.id === state.selectedRecommendationId) || recommendations[0];
-    const requestId = `PR-${2090 + state.createdRequests.length}`;
+    const recs = allRecommendations();
+    const rec = selectedAvailableRecommendation() || recs.find((r) => r.id === state.selectedRecommendationId) || recs[0] || { id: null, itemId: null, item: "", order: "Not linked", shortage: "", priority: "Medium" };
     const itemField = document.querySelector("[data-create-request-field='item']");
     const qtyField = document.querySelector("[data-create-request-field='qty']");
     const noteField = document.querySelector("[data-create-request-field='note']");
+    const expectedDateField = document.querySelector("[data-create-request-field='expectedDate']");
     const manualItem = itemField?.value.trim() || "Manual purchase item";
-    const manualQty = qtyField?.value.trim() || "1";
+    const manualQty = parsePositiveInt(qtyField?.value);
     const selectedPriority = state.priority === "Select priority" ? "Medium" : state.priority;
-    const selectedSupplier = state.supplier === "Select supplier" ? "Manual review" : state.supplier;
+    const selectedSupplier = state.supplier === "Select supplier" ? "Not assigned" : state.supplier;
+    if ((isManualRequest || isInventoryRequest) && !manualQty) {
+      state.createRequestError = "Enter a quantity greater than 0.";
+      render();
+      return;
+    }
+    state.createRequestError = "";
+    const manualMatchedItem = isManualRequest ? inventory.find((item) => item.name.toLowerCase() === manualItem.toLowerCase()) : null;
+    const requestId = nextPurchaseRequestId();
     state.createdRequests.unshift({
       id: requestId,
       item: isManualRequest || isInventoryRequest ? manualItem : rec.item,
+      itemId: isManualRequest ? manualMatchedItem?.id || null : isInventoryRequest ? inventoryRecommendation?.itemId || inventoryItem?.id || null : rec.itemId,
       order: isManualRequest ? "Not linked" : isInventoryRequest ? inventoryRecommendation?.order || "Not linked" : rec.order,
       qty: isManualRequest || isInventoryRequest ? manualQty : rec.shortage,
       priority: isManualRequest || isInventoryRequest ? selectedPriority : state.priority || rec.priority,
       status: "Pending",
       supplier: isManualRequest || isInventoryRequest ? selectedSupplier : state.supplier,
       requestedOn: "Today",
-      recommendationId: isManualRequest ? null : isInventoryRequest ? inventoryRecommendation?.id || null : rec.id,
+      expectedDate: expectedDateField?.value || "",
       notes: noteField?.value.trim() || "",
     });
-    state.purchaseCreated = true;
-    state.createdRequestId = requestId;
+    state.nextRequestSeq += 1;
     state.selectedRequestId = requestId;
     state.selectedCompletedRequestId = null;
     state.createRequestMode = "recommendation";
@@ -1132,21 +1565,12 @@ document.addEventListener("click", (event) => {
 
   const confirmCreateOrder = event.target.closest("[data-confirm-create-order]");
   if (confirmCreateOrder) {
-    const orderId = document.querySelector("[data-create-field='orderId']");
-    const customer = document.querySelector("[data-create-field='customer']");
-    const qty = document.querySelector("[data-create-field='qty']");
-    const orderedDate = document.querySelector("[data-create-field='orderedDate']");
-    const date = document.querySelector("[data-create-field='date']");
-    const notes = document.querySelector("[data-create-field='notes']");
-    state.createOrderId = orderId?.value.trim() || "";
-    state.createCustomer = customer?.value.trim() || "";
-    state.createQty = qty?.value.trim() || "";
-    state.createOrderedDate = orderedDate?.value.trim() || "";
-    state.createDate = date?.value.trim() || "";
-    state.createNotes = notes?.value.trim() || "";
-    const draft = createdOrderDraft();
-    state.orderCreated = true;
-    state.selectedOrderId = draft.id;
+    readCreateOrderFormInputs();
+    const created = tryCreateOrder();
+    if (!created) {
+      render();
+      return;
+    }
     state.statusFilter = "All";
     state.pumpFilter = "All";
     state.activeModal = null;
@@ -1164,6 +1588,7 @@ document.addEventListener("click", (event) => {
       selectedRequest.order = draft.order?.trim() || selectedRequest.order;
       selectedRequest.priority = state.editPriority || selectedRequest.priority;
       selectedRequest.supplier = state.editSupplier || selectedRequest.supplier;
+      selectedRequest.expectedDate = draft.expectedDate || selectedRequest.expectedDate;
       selectedRequest.note = draft.note?.trim() || selectedRequest.note;
       const currentPartial = state.partialReceipts[selectedRequest.id] || 0;
       if (currentPartial >= orderedQty(selectedRequest)) delete state.partialReceipts[selectedRequest.id];
@@ -1178,10 +1603,16 @@ document.addEventListener("click", (event) => {
   if (confirmReceive) {
     const selectedRequest = findPurchaseRequest(state.selectedRequestId);
     if (selectedRequest) {
+      const alreadyReceived = receivedQty(selectedRequest);
       const amountReceived = Math.max(0, Number(state.receiptDraft ?? remainingQty(selectedRequest)) || 0);
-      const totalReceived = Math.min(receivedQty(selectedRequest) + amountReceived, orderedQty(selectedRequest));
+      const totalReceived = Math.min(alreadyReceived + amountReceived, orderedQty(selectedRequest));
+      const appliedToInventory = totalReceived - alreadyReceived;
       state.cancelledRequestIds = state.cancelledRequestIds.filter((requestId) => requestId !== selectedRequest.id);
       state.receivedRequestIds = state.receivedRequestIds.filter((requestId) => requestId !== selectedRequest.id);
+      if (appliedToInventory > 0) {
+        const inventoryItem = selectedRequest.itemId ? inventoryItemById(selectedRequest.itemId) : null;
+        if (inventoryItem) inventoryItem.onHand += appliedToInventory;
+      }
       if (amountReceived > 0 && totalReceived >= orderedQty(selectedRequest)) {
         delete state.partialReceipts[selectedRequest.id];
         state.reopenedHistoryIds = state.reopenedHistoryIds.filter((requestId) => requestId !== selectedRequest.id);
@@ -1191,22 +1622,12 @@ document.addEventListener("click", (event) => {
         state.receivedRequestIds.push(selectedRequest.id);
         state.selectedCompletedRequestId = selectedRequest.id;
         state.historyNoteDraft = selectedRequest.notes;
-        if (selectedRequest.id === "PR-2048") {
-          state.requestReceived = true;
-          state.requestCancelled = false;
-          state.readinessResolved = true;
-        }
       } else if (amountReceived > 0) {
         state.partialReceipts[selectedRequest.id] = totalReceived;
         selectedRequest.status = "Pending";
         state.selectedRequestId = selectedRequest.id;
         state.selectedCompletedRequestId = null;
         state.historyNoteDraft = null;
-        if (selectedRequest.id === "PR-2048") {
-          state.requestReceived = false;
-          state.requestCancelled = false;
-          state.readinessResolved = false;
-        }
       }
     }
     state.activeModal = null;
@@ -1226,11 +1647,6 @@ document.addEventListener("click", (event) => {
       selectedRequest.status = "Cancelled";
       selectedRequest.completed = "Today";
       selectedRequest.notes = selectedRequest.notes || "Cancelled from request details.";
-    }
-    if (selectedRequest?.id === "PR-2048") {
-      state.requestCancelled = true;
-      state.requestReceived = false;
-      state.readinessResolved = false;
     }
     state.selectedCompletedRequestId = selectedRequest?.id || null;
     state.historyNoteDraft = selectedRequest?.notes || "";
@@ -1269,9 +1685,22 @@ document.addEventListener("click", (event) => {
 
   const orderStatusAction = event.target.closest("[data-order-status]");
   if (orderStatusAction) {
-    state.selectedOrderId = orderStatusAction.dataset.order;
-    state.orderStatusOverrides[orderStatusAction.dataset.order] = orderStatusAction.dataset.orderStatus;
-    if (orderStatusAction.dataset.orderStatus === "In production") state.releasedOrderId = orderStatusAction.dataset.order;
+    const orderId = orderStatusAction.dataset.order;
+    state.selectedOrderId = orderId;
+    if (orderStatusAction.dataset.orderStatus === "In production") {
+      releaseOrder(orderId);
+    } else if (orderStatusAction.dataset.orderStatus === "Finished") {
+      if (!state.finishedOrderIds.includes(orderId)) state.finishedOrderIds.push(orderId);
+    }
+    render();
+    return;
+  }
+
+  const returnToQueue = event.target.closest("[data-return-to-queue]");
+  if (returnToQueue) {
+    const orderId = returnToQueue.dataset.order;
+    state.selectedOrderId = orderId;
+    returnOrderToQueue(orderId);
     render();
     return;
   }
@@ -1295,6 +1724,13 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const customerRow = event.target.closest("[data-customer]");
+  if (customerRow) {
+    state.selectedCustomer = customerRow.dataset.customer;
+    render();
+    return;
+  }
+
   const orderRow = event.target.closest("[data-row-route]");
   if (orderRow) {
     state.selectedOrderId = orderRow.dataset.order;
@@ -1307,20 +1743,19 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     state.activeModal = null;
     if (routeEl.dataset.route === "order-created") {
-      const orderId = document.querySelector("[data-create-field='orderId']");
-      const customer = document.querySelector("[data-create-field='customer']");
-      const qty = document.querySelector("[data-create-field='qty']");
-      const orderedDate = document.querySelector("[data-create-field='orderedDate']");
-      const date = document.querySelector("[data-create-field='date']");
-      const notes = document.querySelector("[data-create-field='notes']");
-      state.createOrderId = orderId?.value.trim() || "";
-      state.createCustomer = customer?.value.trim() || "";
-      state.createQty = qty?.value.trim() || "";
-      state.createOrderedDate = orderedDate?.value.trim() || "";
-      state.createDate = date?.value.trim() || "";
-      state.createNotes = notes?.value.trim() || "";
+      readCreateOrderFormInputs();
+      const created = tryCreateOrder();
+      if (!created) {
+        render();
+        return;
+      }
     }
     if (routeEl.dataset.order) state.selectedOrderId = routeEl.dataset.order;
+    if (routeEl.dataset.statusFilter) {
+      state.statusFilter = routeEl.dataset.statusFilter;
+      state.pumpFilter = "All";
+      state.orderSearch = "";
+    }
     routeTo(routeEl.dataset.route);
     return;
   }
@@ -1329,6 +1764,7 @@ document.addEventListener("click", (event) => {
   if (resetOrders) {
     state.statusFilter = "All";
     state.pumpFilter = "All";
+    state.orderSearch = "";
     render();
     return;
   }
@@ -1336,6 +1772,22 @@ document.addEventListener("click", (event) => {
   const resetInventory = event.target.closest("[data-action='reset-inventory-filters']");
   if (resetInventory) {
     state.stockFilter = "All";
+    state.inventorySearch = "";
+    render();
+    return;
+  }
+
+  const addComponent = event.target.closest("[data-action='add-component']");
+  if (addComponent) {
+    state.createComponents = [...(state.createComponents || []), { itemId: null, required: "" }];
+    render();
+    return;
+  }
+
+  const removeComponent = event.target.closest("[data-remove-component]");
+  if (removeComponent) {
+    const index = Number(removeComponent.dataset.removeComponent);
+    state.createComponents = (state.createComponents || []).filter((_, i) => i !== index);
     render();
     return;
   }
@@ -1347,6 +1799,7 @@ document.addEventListener("click", (event) => {
     const status = state.editCompletedStatus || "Received";
     const activeRequest = currentPurchaseRequests().find((r) => r.id === id);
     const historyRequest = requestHistory.find((r) => r.id === id);
+    const targetRequest = activeRequest || historyRequest;
     if (status === "Reopen request") {
       state.receivedRequestIds = state.receivedRequestIds.filter((requestId) => requestId !== id);
       state.cancelledRequestIds = state.cancelledRequestIds.filter((requestId) => requestId !== id);
@@ -1355,14 +1808,10 @@ document.addEventListener("click", (event) => {
         activeRequest.status = "Pending";
         activeRequest.notes = note || activeRequest.notes;
       }
-      if (historyRequest && !state.reopenedHistoryIds.includes(id)) {
+      if (historyRequest) {
+        historyRequest.status = "Pending";
         historyRequest.notes = note || historyRequest.notes;
-        state.reopenedHistoryIds.push(id);
-      }
-      if (id === "PR-2048") {
-        state.requestReceived = false;
-        state.requestCancelled = false;
-        state.readinessResolved = false;
+        if (!state.reopenedHistoryIds.includes(id)) state.reopenedHistoryIds.push(id);
       }
       state.selectedRequestId = id;
       state.selectedCompletedRequestId = null;
@@ -1370,6 +1819,14 @@ document.addEventListener("click", (event) => {
       state.historyNoteDraft = null;
       render();
       return;
+    }
+    const wasReceived = targetRequest ? requestStatus(targetRequest) === "Received" : false;
+    if (status === "Received" && targetRequest && !wasReceived) {
+      const outstanding = orderedQty(targetRequest) - receivedQty(targetRequest);
+      if (outstanding > 0 && targetRequest.itemId) {
+        const inventoryItem = inventoryItemById(targetRequest.itemId);
+        if (inventoryItem) inventoryItem.onHand += outstanding;
+      }
     }
     if (activeRequest) {
       activeRequest.notes = note;
@@ -1379,11 +1836,6 @@ document.addEventListener("click", (event) => {
       delete state.partialReceipts[id];
       if (status === "Received") state.receivedRequestIds.push(id);
       if (status === "Cancelled") state.cancelledRequestIds.push(id);
-      if (id === "PR-2048") {
-        state.requestReceived = status === "Received";
-        state.requestCancelled = status === "Cancelled";
-        state.readinessResolved = status === "Received";
-      }
     }
     if (historyRequest) {
       delete state.partialReceipts[id];
@@ -1403,7 +1855,49 @@ document.addEventListener("click", (event) => {
   }
 });
 
+function reactiveSearchInput(id, apply) {
+  const el = document.getElementById(id);
+  if (!el) return false;
+  const cursor = el.selectionStart;
+  apply();
+  render();
+  const next = document.getElementById(id);
+  if (next) {
+    next.focus();
+    next.setSelectionRange(cursor, cursor);
+  }
+  return true;
+}
+
 document.addEventListener("input", (event) => {
+  if (event.target.id === "order-search") {
+    reactiveSearchInput("order-search", () => {
+      state.orderSearch = event.target.value;
+    });
+    return;
+  }
+
+  if (event.target.id === "inventory-search") {
+    reactiveSearchInput("inventory-search", () => {
+      state.inventorySearch = event.target.value;
+    });
+    return;
+  }
+
+  if (event.target.id === "customer-search") {
+    reactiveSearchInput("customer-search", () => {
+      state.customerSearch = event.target.value;
+    });
+    return;
+  }
+
+  const componentQty = event.target.closest("[data-component-qty]");
+  if (componentQty) {
+    const index = Number(componentQty.dataset.componentQty);
+    state.createComponents[index] = { ...state.createComponents[index], required: componentQty.value };
+    return;
+  }
+
   const createField = event.target.closest("[data-create-field]");
   if (createField) {
     if (createField.dataset.createField === "orderId") state.createOrderId = createField.value;
@@ -1438,6 +1932,18 @@ window.addEventListener("hashchange", () => {
   const route = window.location.hash.replace("#", "");
   state.route = route || "dashboard";
   render();
+});
+
+// Seed orders that start mid-production are normalized into the same state the
+// release action uses, so there is one code path. Their components are treated as
+// already consumed, so seeded on-hand figures are the post-release position.
+orders.forEach((order) => {
+  if (order.stage === "released" && !state.releasedOrderIds.includes(order.id)) {
+    state.releasedOrderIds.push(order.id);
+  }
+  if (order.stage === "finished" && !state.finishedOrderIds.includes(order.id)) {
+    state.finishedOrderIds.push(order.id);
+  }
 });
 
 state.route = window.location.hash.replace("#", "") || "dashboard";
