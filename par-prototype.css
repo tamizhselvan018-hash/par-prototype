@@ -31,8 +31,6 @@
   --notice-text: #3d2f00;
   --danger-bg: #ff746c;
   --danger-text: #4a0f0b;
-  --critical-bg: #ff5c52;
-  --critical-text: #450a05;
   --shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
@@ -165,6 +163,8 @@ button {
   align-items: center;
   gap: 0;
   width: fit-content;
+  color: var(--black);
+  text-decoration-color: var(--black);
 }
 
 .brand-mark {
@@ -181,7 +181,7 @@ button {
 
 .brand-text strong {
   display: block;
-  color: var(--text);
+  color: var(--black);
   font-family: var(--font-brand);
   font-size: 34px;
   font-weight: 400;
@@ -770,16 +770,25 @@ tbody tr[data-customer]:hover {
   margin: 6px 0 16px;
 }
 
-.component-row {
+.component-row-readonly {
   display: grid;
-  grid-template-columns: 1fr 120px auto;
+  grid-template-columns: 1fr 110px 90px;
   gap: 12px;
-  align-items: end;
-  margin-bottom: 14px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-data);
+  font-size: 13px;
 }
 
-.component-row:last-child {
-  margin-bottom: 0;
+.component-row-readonly small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.component-row-readonly strong {
+  font-weight: 600;
+  text-align: right;
 }
 
 .component-editor-empty {
@@ -935,8 +944,7 @@ tbody tr[data-customer]:hover {
   color: #3f3f38;
 }
 
-.badge.finished,
-.badge.routine {
+.badge.finished {
   background: #e2e8f0;
   color: #334155;
 }
@@ -948,11 +956,6 @@ tbody tr[data-customer]:hover {
   color: var(--notice-text);
 }
 
-.badge.critical {
-  background: var(--critical-bg);
-  color: var(--critical-text);
-  border: 1.5px solid var(--danger-text);
-}
 
 .side-panel {
   padding: 22px;

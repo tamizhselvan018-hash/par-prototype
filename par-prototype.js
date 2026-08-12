@@ -16,7 +16,6 @@ const state = {
   releasedOrderIds: [],
   finishedOrderIds: [],
   createdOrders: [],
-  createComponents: [],
   nextOrderSeq: 1092,
   nextRequestSeq: 2090,
   createOrderError: "",
@@ -29,7 +28,8 @@ const state = {
   },
   createdRequests: [],
   createOrderId: "",
-  createCustomer: "",
+  createCustomerChoice: "Select customer",
+  createNewCustomerName: "",
   createCustomerType: "Commercial",
   createPump: "Select pump model",
   createQty: "",
@@ -49,33 +49,51 @@ const state = {
   activeModal: null,
 };
 
+// Customers are master data: defined once, referenced by orders via customerId.
+// Customer type lives here, not on the order, so it cannot contradict itself
+// between two orders for the same company.
+const customers = [
+  { id: "northfield", name: "Northfield Waterworks", type: "Municipal" },
+  { id: "delta-farms", name: "Delta Farms", type: "Agricultural" },
+  { id: "city-utilities", name: "City Utilities", type: "Municipal" },
+  { id: "riverbend", name: "Riverbend Co-op", type: "Agricultural" },
+  { id: "oakridge", name: "Oakridge Processing", type: "Industrial" },
+  { id: "harbor-supply", name: "Harbor Supply", type: "Commercial" },
+  { id: "mesa-agri", name: "Mesa Agri Systems", type: "Agricultural" },
+  { id: "fairview", name: "Fairview Water Systems", type: "Municipal" },
+  { id: "crestline", name: "Crestline Municipal", type: "Municipal" },
+];
+
 const orders = [
-  { id: "PO-1048", customer: "Northfield Waterworks", customerType: "Municipal", model: "Pump A-12", qty: 12, ordered: "Jun 8, 2026", date: "Jun 12, 2026", notes: "Priority replacement order for site maintenance.", priority: "High", components: [{ itemId: "seal-kit", required: 12 }, { itemId: "impeller", required: 8 }, { itemId: "fastener", required: 24 }] },
-  { id: "PO-1051", customer: "Delta Farms", customerType: "Agricultural", model: "Pump B-20", qty: 6, ordered: "Jun 9, 2026", date: "Jun 14, 2026", notes: "Standard irrigation pump batch.", priority: "Medium", stage: "released", components: [{ itemId: "motor", required: 20 }] },
-  { id: "PO-1057", customer: "City Utilities", customerType: "Municipal", model: "Pump C-05", qty: 18, ordered: "Jun 10, 2026", date: "Jun 18, 2026", notes: "Split delivery acceptable if assembly runs late.", priority: "Medium", stage: "released", components: [{ itemId: "impeller", required: 27 }] },
-  { id: "PO-1062", customer: "Riverbend Co-op", customerType: "Agricultural", model: "Pump A-12", qty: 8, ordered: "Jun 12, 2026", date: "Jun 21, 2026", notes: "Hold finished units for customer pickup.", priority: "Medium", components: [{ itemId: "shaft", required: 8 }] },
-  { id: "PO-1064", customer: "Oakridge Processing", customerType: "Industrial", model: "Pump D-10", qty: 4, ordered: "Jun 13, 2026", date: "Jun 24, 2026", notes: "Use standard packaging.", priority: "Medium", components: [{ itemId: "casing", required: 4 }] },
-  { id: "PO-1069", customer: "Harbor Supply", customerType: "Commercial", model: "Pump D-10", qty: 5, ordered: "Jun 14, 2026", date: "Jun 25, 2026", notes: "Confirm final inspection before dispatch.", priority: "Medium", stage: "released", components: [{ itemId: "coupling", required: 5 }] },
-  { id: "PO-1068", customer: "Mesa Agri Systems", customerType: "Agricultural", model: "Pump B-20", qty: 10, ordered: "Jun 15, 2026", date: "Jun 28, 2026", notes: "Waiting for bearing stock before release.", priority: "High", components: [{ itemId: "bearing", required: 10 }, { itemId: "mechanical-seal", required: 10 }] },
-  { id: "PO-1072", customer: "Fairview Water Systems", customerType: "Municipal", model: "Pump C-05", qty: 8, ordered: "Jun 16, 2026", date: "Jun 30, 2026", notes: "Awaiting gasket restock before release.", priority: "Low", components: [{ itemId: "gasket", required: 8 }] },
-  { id: "PO-1074", customer: "Crestline Municipal", customerType: "Municipal", model: "Pump D-10", qty: 18, ordered: "Jun 17, 2026", date: "Jul 2, 2026", notes: "Blocked on O-Ring Set until received.", priority: "Medium", components: [{ itemId: "o-ring", required: 18 }] },
+  { id: "PO-1048", customerId: "northfield", model: "Pump A-12", qty: 12, ordered: "Jun 8, 2026", date: "Jun 12, 2026", notes: "Priority replacement order for site maintenance.", priority: "High", components: [{ itemId: "seal-kit", required: 12 }, { itemId: "impeller", required: 8 }, { itemId: "fastener", required: 24 }] },
+  { id: "PO-1051", customerId: "delta-farms", model: "Pump B-20", qty: 6, ordered: "Jun 9, 2026", date: "Jun 14, 2026", notes: "Standard irrigation pump batch.", priority: "Medium", stage: "released", components: [{ itemId: "motor", required: 20 }] },
+  { id: "PO-1057", customerId: "city-utilities", model: "Pump C-05", qty: 18, ordered: "Jun 10, 2026", date: "Jun 18, 2026", notes: "Split delivery acceptable if assembly runs late.", priority: "Medium", stage: "released", components: [{ itemId: "impeller", required: 27 }] },
+  { id: "PO-1062", customerId: "riverbend", model: "Pump A-12", qty: 8, ordered: "Jun 12, 2026", date: "Jun 21, 2026", notes: "Hold finished units for customer pickup.", priority: "Medium", components: [{ itemId: "shaft", required: 8 }] },
+  { id: "PO-1064", customerId: "oakridge", model: "Pump D-10", qty: 4, ordered: "Jun 13, 2026", date: "Jun 24, 2026", notes: "Use standard packaging.", priority: "Medium", components: [{ itemId: "casing", required: 4 }] },
+  { id: "PO-1069", customerId: "harbor-supply", model: "Pump D-10", qty: 5, ordered: "Jun 14, 2026", date: "Jun 25, 2026", notes: "Confirm final inspection before dispatch.", priority: "Medium", stage: "released", components: [{ itemId: "coupling", required: 5 }] },
+  { id: "PO-1068", customerId: "mesa-agri", model: "Pump B-20", qty: 10, ordered: "Jun 15, 2026", date: "Jun 28, 2026", notes: "Waiting for bearing stock before release.", priority: "High", components: [{ itemId: "bearing", required: 10 }, { itemId: "mechanical-seal", required: 10 }] },
+  { id: "PO-1072", customerId: "fairview", model: "Pump C-05", qty: 8, ordered: "Jun 16, 2026", date: "Jun 30, 2026", notes: "Awaiting gasket restock before release.", priority: "Low", components: [{ itemId: "gasket", required: 8 }] },
+  { id: "PO-1074", customerId: "crestline", model: "Pump D-10", qty: 18, ordered: "Jun 17, 2026", date: "Jul 2, 2026", notes: "Blocked on O-Ring Set until received.", priority: "Medium", components: [{ itemId: "o-ring", required: 18 }] },
+  { id: "PO-1076", customerId: "riverbend", model: "Pump A-12", qty: 3, ordered: "Jun 17, 2026", date: "Jul 3, 2026", notes: "Replacement units for the east field station.", priority: "Medium", components: [{ itemId: "seal-kit", required: 3 }, { itemId: "impeller", required: 3 }, { itemId: "fastener", required: 6 }] },
+  { id: "PO-1078", customerId: "city-utilities", model: "Pump C-05", qty: 2, ordered: "Jun 18, 2026", date: "Jul 6, 2026", notes: "Spare units held for the treatment plant.", priority: "Low", components: [{ itemId: "gasket", required: 2 }] },
+  { id: "PO-1080", customerId: "oakridge", model: "Centrifugal Pump CP-100", qty: 4, ordered: "Jun 18, 2026", date: "Jul 8, 2026", notes: "Standard build, no special handling.", priority: "Medium", components: [{ itemId: "casing", required: 4 }, { itemId: "impeller", required: 4 }, { itemId: "shaft", required: 4 }, { itemId: "mechanical-seal", required: 4 }] },
 ];
 
 const completedOrders = [
-  { id: "PO-1036", customer: "Northfield Waterworks", customerType: "Municipal", model: "Pump A-12", qty: 10, ordered: "May 26, 2026", date: "Jun 5, 2026", completed: "Jun 7, 2026", status: "Finished" },
-  { id: "PO-1032", customer: "Delta Farms", customerType: "Agricultural", model: "Pump B-20", qty: 4, ordered: "May 22, 2026", date: "Jun 4, 2026", completed: "Jun 6, 2026", status: "Finished" },
-  { id: "PO-1028", customer: "Oakridge Processing", customerType: "Industrial", model: "Pump D-10", qty: 6, ordered: "May 18, 2026", date: "Jun 2, 2026", completed: "Jun 4, 2026", status: "Finished" },
+  { id: "PO-1036", customerId: "northfield", model: "Pump A-12", qty: 10, ordered: "May 26, 2026", date: "Jun 5, 2026", completed: "Jun 7, 2026", status: "Finished" },
+  { id: "PO-1032", customerId: "delta-farms", model: "Pump B-20", qty: 4, ordered: "May 22, 2026", date: "Jun 4, 2026", completed: "Jun 6, 2026", status: "Finished" },
+  { id: "PO-1028", customerId: "oakridge", model: "Pump D-10", qty: 6, ordered: "May 18, 2026", date: "Jun 2, 2026", completed: "Jun 4, 2026", status: "Finished" },
 ];
 
 const inventory = [
-  { id: "seal-kit", name: "Seal Kit SK-08", category: "Component", onHand: 4, reorder: 20, critical: true, related: ["PO-1048 needs 12 units", "PO-1057 may need 18 units"] },
-  { id: "bearing", name: "Bearing BR-02", category: "Component", onHand: 0, reorder: 12, critical: true, related: ["PO-1068 needs this item before release."] },
-  { id: "impeller", name: "Impeller 4in", category: "Component", onHand: 9, reorder: 30, critical: true, related: ["PO-1057 may need 18 units"] },
+  { id: "seal-kit", name: "Seal Kit SK-08", category: "Component", onHand: 4, reorder: 20, related: ["PO-1048 needs 12 units", "PO-1057 may need 18 units"] },
+  { id: "bearing", name: "Bearing BR-02", category: "Component", onHand: 0, reorder: 12, related: ["PO-1068 needs this item before release."] },
+  { id: "impeller", name: "Impeller 4in", category: "Component", onHand: 9, reorder: 30, related: ["PO-1057 may need 18 units"] },
   { id: "motor", name: "Motor Housing", category: "Component", onHand: 14, reorder: 10, related: ["PO-1051 needs 6 units"] },
   { id: "fastener", name: "Fastener Set FS-20", category: "Component", onHand: 30, reorder: 25, related: [] },
   { id: "shaft", name: "Shaft Assembly", category: "Component", onHand: 16, reorder: 10, related: ["PO-1062 needs 8 units"] },
-  { id: "mechanical-seal", name: "Mechanical Seal", category: "Component", onHand: 6, reorder: 14, critical: true, related: ["PO-1068 may need 10 units"] },
-  { id: "o-ring", name: "O-Ring Set", category: "Component", onHand: 0, reorder: 18, critical: true, related: ["PO-1074 cannot start until this item is received."] },
+  { id: "mechanical-seal", name: "Mechanical Seal", category: "Component", onHand: 6, reorder: 14, related: ["PO-1068 may need 10 units"] },
+  { id: "o-ring", name: "O-Ring Set", category: "Component", onHand: 0, reorder: 18, related: ["PO-1074 cannot start until this item is received."] },
   { id: "gasket", name: "Gasket G-14", category: "Component", onHand: 3, reorder: 8, related: ["PO-1072 needs 8 units"] },
   { id: "casing", name: "Pump Casing", category: "Component", onHand: 11, reorder: 8, related: [] },
   { id: "coupling", name: "Coupling Set", category: "Component", onHand: 7, reorder: 6, related: ["PO-1069 needs 5 units"] },
@@ -105,11 +123,14 @@ function customerTypeOptions() {
   return ["Commercial", "Agricultural", "Industrial", "Municipal"];
 }
 
+// Quantities are PER PUMP. The order's total requirement is per-unit x order qty,
+// so a run of 50 pumps claims 50x the parts of a run of 1.
 const pumpModelDefaultComponents = {
-  "Pump A-12": [{ itemId: "seal-kit", required: 12 }, { itemId: "impeller", required: 8 }, { itemId: "fastener", required: 24 }],
-  "Pump B-20": [{ itemId: "bearing", required: 10 }, { itemId: "mechanical-seal", required: 10 }],
-  "Pump C-05": [{ itemId: "gasket", required: 8 }],
-  "Pump D-10": [{ itemId: "o-ring", required: 18 }],
+  "Centrifugal Pump CP-100": [{ itemId: "casing", required: 1 }, { itemId: "impeller", required: 1 }, { itemId: "shaft", required: 1 }, { itemId: "mechanical-seal", required: 1 }],
+  "Pump A-12": [{ itemId: "seal-kit", required: 1 }, { itemId: "impeller", required: 1 }, { itemId: "fastener", required: 2 }],
+  "Pump B-20": [{ itemId: "bearing", required: 1 }, { itemId: "mechanical-seal", required: 1 }],
+  "Pump C-05": [{ itemId: "gasket", required: 1 }],
+  "Pump D-10": [{ itemId: "o-ring", required: 1 }],
 };
 
 function defaultComponentsForModel(model) {
@@ -130,9 +151,52 @@ function isOrderIdTaken(id) {
   return [...orders, ...state.createdOrders].some((order) => order.id === id);
 }
 
+const NEW_CUSTOMER_OPTION = "+ Add new customer";
+
+function customerChoiceOptions() {
+  return ["Select customer", ...customers.map((customer) => customer.name), NEW_CUSTOMER_OPTION];
+}
+
+function isAddingNewCustomer() {
+  return state.createCustomerChoice === NEW_CUSTOMER_OPTION;
+}
+
+// Type is read off the chosen customer record; only a brand-new customer lets
+// you set it, which is what stops two orders disagreeing about the same company.
+function customerTypeForChoice() {
+  if (isAddingNewCustomer()) return state.createCustomerType || "Commercial";
+  const picked = customers.find((customer) => customer.name === state.createCustomerChoice);
+  return picked ? picked.type : "—";
+}
+
+function customerIdBySlug(name) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+// Resolves the form's customer selection to a master-data record, creating one
+// only when the user explicitly chose "add new".
+function resolveCreateCustomer() {
+  if (isAddingNewCustomer()) {
+    const name = state.createNewCustomerName.trim();
+    if (!name) return { error: "Enter a name for the new customer." };
+    const existing = customers.find((c) => c.name.toLowerCase() === name.toLowerCase());
+    if (existing) return { error: `${existing.name} already exists — pick them from the list instead.` };
+    const record = { id: customerIdBySlug(name) || `customer-${customers.length + 1}`, name, type: state.createCustomerType || "Commercial" };
+    return { record, isNew: true };
+  }
+  const picked = customers.find((c) => c.name === state.createCustomerChoice);
+  if (!picked) return { error: "Select a customer for this order." };
+  return { record: picked, isNew: false };
+}
+
 function resetCreateOrderForm() {
   state.createOrderId = nextProductionOrderId();
-  state.createCustomer = "";
+  state.createCustomerChoice = "Select customer";
+  state.createNewCustomerName = "";
   state.createCustomerType = "Commercial";
   state.createPump = "Select pump model";
   state.createQty = "";
@@ -140,7 +204,6 @@ function resetCreateOrderForm() {
   state.createDate = "";
   state.createNotes = "";
   state.createOrderError = "";
-  state.createComponents = [];
 }
 
 function ensureCreateOrderDefaults() {
@@ -148,24 +211,26 @@ function ensureCreateOrderDefaults() {
   if (!state.createOrderedDate) state.createOrderedDate = appTodayIso;
 }
 
-function validCreateComponents() {
-  return (state.createComponents || [])
-    .map((component) => ({ itemId: component.itemId, required: parsePositiveInt(component.required) }))
-    .filter((component) => component.itemId && component.required);
+// The bill of materials belongs to the pump model, not the order. The order's
+// requirement is simply the model's per-pump list multiplied by the quantity.
+function validCreateComponents(orderQty = 1) {
+  return defaultComponentsForModel(state.createPump).map((component) => ({
+    itemId: component.itemId,
+    required: component.required * orderQty,
+  }));
 }
 
-function buildOrderFromForm(id, qty) {
+function buildOrderFromForm(id, qty, customerId) {
   return {
     id,
-    customer: state.createCustomer.trim() || "Not recorded",
-    customerType: state.createCustomerType || "Commercial",
+    customerId,
     model: state.createPump && state.createPump !== "Select pump model" ? state.createPump : "Custom pump model",
     qty,
     ordered: formatDateLabel(state.createOrderedDate),
     date: formatDateLabel(state.createDate),
     notes: state.createNotes.trim() || "No notes added",
     priority: "Medium",
-    components: validCreateComponents(),
+    components: validCreateComponents(qty),
   };
 }
 
@@ -184,7 +249,13 @@ function tryCreateOrder() {
     state.createOrderError = "Enter a quantity greater than 0.";
     return null;
   }
-  const order = buildOrderFromForm(id, qty);
+  const resolvedCustomer = resolveCreateCustomer();
+  if (resolvedCustomer.error) {
+    state.createOrderError = resolvedCustomer.error;
+    return null;
+  }
+  if (resolvedCustomer.isNew) customers.push(resolvedCustomer.record);
+  const order = buildOrderFromForm(id, qty, resolvedCustomer.record.id);
   state.createdOrders.push(order);
   state.nextOrderSeq += 1;
   state.createOrderError = "";
@@ -217,6 +288,18 @@ function inventoryItemById(id) {
   return inventory.find((item) => item.id === id);
 }
 
+function customerById(id) {
+  return customers.find((customer) => customer.id === id);
+}
+
+function orderCustomerName(order) {
+  return customerById(order.customerId)?.name || "Not recorded";
+}
+
+function orderCustomerType(order) {
+  return customerById(order.customerId)?.type || "Commercial";
+}
+
 function inventoryStockStatus(item) {
   if (item.onHand <= 0) return "Out of stock";
   if (item.onHand < item.reorder) return "Low stock";
@@ -233,7 +316,6 @@ function orderShortages(order) {
       required: component.required,
       available,
       shortage: Math.max(component.required - available, 0),
-      critical: !!item?.critical,
     };
   });
 }
@@ -316,7 +398,7 @@ const customerUrgencyNotes = {
 const customerUrgencyWeight = { Agricultural: 3, Industrial: 2, Municipal: 1, Commercial: 0 };
 
 function orderUrgencyWeight(order) {
-  return customerUrgencyWeight[order.customerType] ?? 0;
+  return customerUrgencyWeight[orderCustomerType(order)] ?? 0;
 }
 
 function computeRecommendations() {
@@ -333,11 +415,11 @@ function computeRecommendations() {
           required: component.required,
           available: component.available,
           shortage: component.shortage,
-          critical: component.critical,
-          priority: component.critical ? "High" : order.priority || "Medium",
+          priority: order.priority || "Medium",
         }))
     );
-  return list.sort((a, b) => (b.critical ? 1 : 0) - (a.critical ? 1 : 0));
+  const rank = { High: 0, Medium: 1, Low: 2 };
+  return list.sort((a, b) => (rank[a.priority] ?? 3) - (rank[b.priority] ?? 3));
 }
 
 function hasAnyActiveRequestForItem(itemId) {
@@ -361,10 +443,9 @@ function restockRecommendations() {
       required: item.reorder,
       available: item.onHand,
       shortage: Math.max(item.reorder - item.onHand, 0),
-      critical: !!item.critical,
-      priority: item.onHand <= 0 ? "High" : item.critical ? "Medium" : "Low",
+      priority: item.onHand <= 0 ? "High" : "Low",
     }))
-    .sort((a, b) => (b.critical ? 1 : 0) - (a.critical ? 1 : 0));
+    .sort((a, b) => (a.priority === "High" ? 0 : 1) - (b.priority === "High" ? 0 : 1));
 }
 
 function allRecommendations() {
@@ -455,49 +536,50 @@ function createOrderFormFields() {
   return `
     ${state.createOrderError ? `<div class="field-error">${state.createOrderError}</div>` : ""}
     <div class="field"><label>Order ID</label><input data-create-field="orderId" value="${state.createOrderId}" /></div>
-    <div class="field"><label>Customer name</label><input data-create-field="customer" value="${state.createCustomer}" placeholder="Enter customer name" /></div>
-    <div class="field"><label>Customer type</label>${dropdown("createCustomerType", state.createCustomerType, customerTypeOptions())}</div>
+    <div class="field"><label>Customer</label>${dropdown("createCustomerChoice", state.createCustomerChoice, customerChoiceOptions())}</div>
+    ${
+      isAddingNewCustomer()
+        ? `<div class="field"><label>New customer name</label><input data-create-field="newCustomerName" value="${state.createNewCustomerName}" placeholder="Enter customer name" /></div>
+           <div class="field"><label>Customer type</label>${dropdown("createCustomerType", state.createCustomerType, customerTypeOptions())}</div>`
+        : `<div class="field"><label>Customer type</label><input value="${customerTypeForChoice()}" readonly /></div>`
+    }
     <div class="field"><label>Ordered date</label><input type="date" data-create-field="orderedDate" value="${state.createOrderedDate}" /></div>
     <div class="field"><label>Required date</label><input type="date" data-create-field="date" value="${state.createDate}" /></div>
     <div class="field"><label>Pump model</label>${dropdown("createPump", state.createPump, pumpModelOptions())}</div>
     <div class="field"><label>Quantity</label><input data-create-field="qty" value="${state.createQty}" placeholder="Enter quantity" /></div>
     <div class="field wide"><label>Notes</label><textarea data-create-field="notes" placeholder="Add production notes">${state.createNotes}</textarea></div>
-    <p class="sub field-hint">${customerUrgencyNotes[state.createCustomerType] || ""}</p>
+    <p class="sub field-hint">${customerUrgencyNotes[customerTypeForChoice()] || ""}</p>
     ${componentEditorFields()}
   `;
 }
 
-function componentInventoryOptions() {
-  return inventory.filter((item) => item.category === "Component").map((item) => item.name);
-}
-
-function componentDropdown(index, itemId) {
-  const item = itemId ? inventoryItemById(itemId) : null;
-  const value = item ? item.name : "Select component";
-  return dropdown(`createComponent-${index}`, value, ["Select component", ...componentInventoryOptions()]);
-}
-
+// Read-only: the bill of materials comes from the pump model, so it cannot differ
+// between two orders for the same model.
 function componentEditorFields() {
-  const components = state.createComponents || [];
-  const rows = components
-    .map(
-      (component, index) => `
-        <div class="component-row">
-          <div class="field"><label>Component</label>${componentDropdown(index, component.itemId)}</div>
-          <div class="field"><label>Qty required</label><input data-component-qty="${index}" value="${component.required ?? ""}" placeholder="Qty" /></div>
-          <button type="button" class="button secondary small" data-remove-component="${index}">Remove</button>
-        </div>
-      `
-    )
+  const perUnit = defaultComponentsForModel(state.createPump);
+  const qty = parsePositiveInt(state.createQty) || 1;
+  const rows = perUnit
+    .map((component) => {
+      const item = inventoryItemById(component.itemId);
+      return `
+        <div class="component-row-readonly">
+          <span>${item ? item.name : component.itemId}</span>
+          <small>${component.required} per pump</small>
+          <strong>${component.required * qty} total</strong>
+        </div>`;
+    })
     .join("");
   return `
     <div class="component-editor">
       <div class="component-editor-head">
         <label>Components required</label>
-        <button type="button" class="button secondary small" data-action="add-component">Add component</button>
+        ${perUnit.length ? `<span class="panel-meta">${perUnit.length} parts</span>` : ""}
       </div>
-      <p class="sub">Defaults are suggested from the pump model. Add, remove, or adjust quantities as needed.</p>
-      ${rows || `<p class="sub component-editor-empty">No components added yet. This order will always show as Ready.</p>`}
+      ${
+        perUnit.length
+          ? `<p class="sub">From the ${state.createPump} bill of materials, multiplied by the order quantity (&times; ${qty}).</p>${rows}`
+          : `<p class="sub component-editor-empty">Select a pump model to see the components it needs.</p>`
+      }
     </div>
   `;
 }
@@ -522,7 +604,7 @@ function pageMeta() {
     "order-created": ["Order Created", "Production order created"],
     readiness: ["Order Readiness", "Automatic inventory result for this order"],
     "release-success": ["Release Complete", "Order released to assembly"],
-    "no-issues": ["No Issues", "No blocked orders or critical shortages"],
+    "no-issues": ["No Issues", "No blocked orders or inventory shortages"],
   };
   return meta[state.route] || meta.dashboard;
 }
@@ -607,15 +689,15 @@ function finishedOrders() {
 }
 
 function allCustomers() {
-  const byName = new Map();
-  [...currentOrders(), ...finishedOrders()].forEach((order) => {
-    if (!order.customer) return;
-    if (!byName.has(order.customer)) {
-      byName.set(order.customer, { name: order.customer, customerType: order.customerType || "Commercial", orders: [] });
-    }
-    byName.get(order.customer).orders.push(order);
-  });
-  return Array.from(byName.values()).sort((a, b) => a.name.localeCompare(b.name));
+  const allOrders = [...currentOrders(), ...finishedOrders()];
+  return customers
+    .map((customer) => ({
+      id: customer.id,
+      name: customer.name,
+      customerType: customer.type,
+      orders: allOrders.filter((order) => order.customerId === customer.id),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function customerSummary(customer) {
@@ -627,20 +709,35 @@ function customerSummary(customer) {
   };
 }
 
+// The dashboard shows a short, representative slice rather than the whole queue:
+// take orders round-robin across the statuses so every status is visible, then
+// group them back so the table still reads blocked-first.
+function dashboardOrderSample(list, limit) {
+  const statusOrder = ["Blocked", "In production", "Ready to build"];
+  const byStatus = statusOrder.map((status) =>
+    list.filter((order) => order.status === status).sort((a, b) => orderUrgencyWeight(b) - orderUrgencyWeight(a))
+  );
+  const picked = [];
+  for (let round = 0; picked.length < limit; round += 1) {
+    let addedThisRound = false;
+    byStatus.forEach((group) => {
+      if (picked.length < limit && group[round]) {
+        picked.push(group[round]);
+        addedThisRound = true;
+      }
+    });
+    if (!addedThisRound) break;
+  }
+  return picked.sort((a, b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status));
+}
+
 function dashboard() {
   const list = currentOrders();
   const inProduction = list.filter((o) => o.status === "In production");
   const ready = list.filter((o) => o.status === "Ready to build");
   const blocked = list.filter((o) => o.status === "Blocked");
   const low = inventory.filter((i) => ["Low stock", "Out of stock"].includes(inventoryStockStatus(i)));
-  const statusRank = { Blocked: 0, "In production": 1, "Ready to build": 2 };
-  const dashboardOrders = [...list]
-    .sort((a, b) => {
-      const statusDelta = (statusRank[a.status] ?? 3) - (statusRank[b.status] ?? 3);
-      if (statusDelta !== 0) return statusDelta;
-      return orderUrgencyWeight(b) - orderUrgencyWeight(a);
-    })
-    .slice(0, 5);
+  const dashboardOrders = dashboardOrderSample(list, 6);
   const receiptDue = currentPurchaseRequests()
     .filter((request) => ["Pending", "Partially received"].includes(requestStatus(request)))
     .slice(0, 3);
@@ -674,7 +771,7 @@ function dashboard() {
                 .join("")}
             </tbody>
           </table>
-          <div class="footer-row"><button class="button" data-route="orders">View production orders</button><span>In production shown first</span></div>
+          <div class="footer-row"><button class="button" data-route="orders">View production orders</button><span>Sample across statuses</span></div>
         </div>
       </article>
       <aside class="card side-panel">
@@ -685,7 +782,7 @@ function dashboard() {
               <div class="detail-list">
                 <div class="full"><span>Pump model</span><strong>${selectedDashboardOrder.model}</strong></div>
                 <div><span>Status</span>${badge(selectedDashboardOrder.status)}</div>
-                <div><span>Customer type</span><strong>${selectedDashboardOrder.customerType || "Commercial"}</strong></div>
+                <div><span>Customer type</span><strong>${orderCustomerType(selectedDashboardOrder)}</strong></div>
                 <div><span>Ordered date</span><strong>${selectedDashboardOrder.ordered || "Today"}</strong></div>
                 <div><span>Required date</span><strong>${selectedDashboardOrder.date}</strong></div>
                 ${selectedDashboardOrder.status === "Blocked" && orderExpectedReadyLabel(selectedDashboardOrder) ? `<div class="full"><span>Expected ready</span><strong>${orderExpectedReadyLabel(selectedDashboardOrder)}</strong></div>` : ""}
@@ -792,9 +889,9 @@ function ordersPage() {
           selectedOrder
             ? `<p class="sub">Selected order: ${selectedOrder.id}</p>
               <div class="detail-list">
-                <div class="full"><span>Customer</span><strong>${selectedOrder.customer || "Not recorded"}</strong></div>
+                <div class="full"><span>Customer</span><strong>${orderCustomerName(selectedOrder)}</strong></div>
                 <div><span>Pump model</span><strong>${selectedOrder.model}</strong></div>
-                <div><span>Customer type</span><strong>${selectedOrder.customerType || "Commercial"}</strong></div>
+                <div><span>Customer type</span><strong>${orderCustomerType(selectedOrder)}</strong></div>
                 <div><span>Quantity</span><strong>${selectedOrder.qty}</strong></div>
                 <div><span>Status</span>${badge(selectedOrder.status)}</div>
                 <div><span>Ordered date</span><strong>${selectedOrder.ordered || "Today"}</strong></div>
@@ -823,9 +920,8 @@ function readinessPage() {
   const order = currentOrders().find((o) => o.id === state.selectedOrderId) || currentOrders()[0];
   const shortages = order ? orderShortages(order) : [];
   const blocked = shortages.some((c) => c.shortage > 0);
-  const criticalBlock = shortages.some((c) => c.shortage > 0 && c.critical);
   const status = blocked ? "Blocked" : "Ready to build";
-  const firstShortfall = shortages.find((c) => c.shortage > 0 && c.critical) || shortages.find((c) => c.shortage > 0);
+  const firstShortfall = shortages.find((c) => c.shortage > 0);
   const expectedReady = order && blocked ? orderExpectedReadyLabel(order) : null;
   return shell(`
     ${header("Order Readiness", "Automatic inventory result for this production order", button("Back to orders", "orders", "secondary"))}
@@ -840,7 +936,7 @@ function readinessPage() {
         <div class="status-word ${blocked ? "blocked-text" : "ready-text"}">${status}</div>
         <p class="sub">${
           blocked
-            ? `${criticalBlock ? "Blocked on a safety-critical component — cannot ship without it. " : ""}Release is unavailable until the shortage is resolved.${expectedReady ? ` Expected by ${expectedReady}.` : ""}`
+            ? `Release is unavailable until the shortage is resolved.${expectedReady ? ` Expected by ${expectedReady}.` : ""}`
             : "All required components are available."
         }</p>
       </div>
@@ -851,7 +947,7 @@ function readinessPage() {
       }</div>
     </section>
     <section class="card">
-      <div class="panel-head"><div><h2>Component Availability</h2><p>Critical components are safety- or performance-critical if missing; only shortages block release.</p></div></div>
+      <div class="panel-head"><div><h2>Component Availability</h2><p>Only components with shortages block the order release.</p></div></div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Component</th><th>Required quantity</th><th>Available quantity</th><th>Shortage quantity</th><th>Status</th></tr></thead>
@@ -860,7 +956,7 @@ function readinessPage() {
               ? shortages
                   .map(
                     (c) =>
-                      `<tr class="${c.shortage > 0 ? "selected" : ""}"><td>${c.item?.name || c.itemId}</td><td>${c.required}</td><td>${c.available}</td><td>${c.shortage}</td><td>${badge(c.shortage > 0 ? (c.critical ? "Critical" : "Blocked") : "Ready")}</td></tr>`
+                      `<tr class="${c.shortage > 0 ? "selected" : ""}"><td>${c.item?.name || c.itemId}</td><td>${c.required}</td><td>${c.available}</td><td>${c.shortage}</td><td>${badge(c.shortage > 0 ? "Blocked" : "Ready")}</td></tr>`
                   )
                   .join("")
               : `<tr><td colspan="5">No components recorded for this order.</td></tr>`
@@ -870,7 +966,7 @@ function readinessPage() {
     </section>
     <section class="card pad" style="margin-top: 28px;">
       <h2>Recommended Action</h2>
-      <p>${blocked ? `Create purchase request for ${firstShortfall.shortage} missing ${firstShortfall.item?.name || ""} units.${firstShortfall.critical ? " This is a safety-critical component — prioritize this request." : ""}` : `Release ${order ? order.id : "this order"} to production.`}</p>
+      <p>${blocked ? `Create purchase request for ${firstShortfall.shortage} missing ${firstShortfall.item?.name || ""} units.` : `Release ${order ? order.id : "this order"} to production.`}</p>
     </section>
   `);
 }
@@ -956,13 +1052,12 @@ function recommendationsPage() {
                 <div class="full"><span>Item name</span><strong>${selected.item}</strong></div>
                 <div><span>Affected order</span><strong>${selected.order}</strong></div>
                 <div><span>Priority</span>${badge(selected.priority)}</div>
-                <div><span>Criticality</span>${badge(selected.critical ? "Critical" : "Routine")}</div>
                 <div><span>Required</span><strong>${selected.required}</strong></div>
                 <div><span>Available</span><strong>${selected.available}</strong></div>
                 <div><span>Shortage</span><strong>${selected.shortage}</strong></div>
               </div>
               <p class="mini-label">Suggested action</p>
-              <p>Create purchase request for ${selected.shortage} missing units.${selected.critical ? " This is a safety-critical part — do not defer." : ""}</p>
+              <p>Create purchase request for ${selected.shortage} missing units.</p>
               <button class="button full" data-modal="create-purchase-request" data-rec-action="${selected.id}">Create request</button>`
             : `<p class="sub">No recommendation selected</p>
               <p>All current recommendations already have purchase requests.</p>`
@@ -973,7 +1068,7 @@ function recommendationsPage() {
 }
 
 function createOrderPage() {
-  const previewComponents = validCreateComponents();
+  const previewComponents = validCreateComponents(parsePositiveInt(state.createQty) || 1);
   const previewBlocked = orderShortages({ components: previewComponents }).some((c) => c.shortage > 0);
   const previewStatus = previewBlocked ? "Blocked" : "Ready to build";
   return shell(`
@@ -1000,7 +1095,7 @@ function orderCreatedPage() {
   if (!order) return dashboard();
   return successPage("Order Created", "Production order created", `Inventory was checked automatically and ${order.id} is ready to release.`, [
     ["Order ID", order.id],
-    ["Customer", order.customer],
+    ["Customer", orderCustomerName(order)],
     ["Readiness result", badge(computedOrderStatus(order))],
     ["Pump model", order.model],
     ["Ordered date", order.ordered],
@@ -1100,8 +1195,8 @@ function requestsPage() {
 
 function customersPage() {
   const customerSearch = state.customerSearch.trim().toLowerCase();
-  const customers = allCustomers().filter((customer) => !customerSearch || customer.name.toLowerCase().includes(customerSearch));
-  const selected = customers.find((customer) => customer.name === state.selectedCustomer) || customers[0] || null;
+  const customerList = allCustomers().filter((customer) => !customerSearch || customer.name.toLowerCase().includes(customerSearch));
+  const selected = customerList.find((customer) => customer.id === state.selectedCustomer) || customerList[0] || null;
   const selectedOrders = selected
     ? [...selected.orders].sort((a, b) => (a.status === "Finished" ? 1 : 0) - (b.status === "Finished" ? 1 : 0))
     : [];
@@ -1109,7 +1204,7 @@ function customersPage() {
     ${header("Customers", "Review customer order history and context")}
     <section class="two-col-wide customers-layout">
       <article class="card">
-        <div class="panel-head"><div><h2>Customer List</h2><p>Every customer with an active or completed order</p></div><span class="panel-meta">${customers.length} customers</span></div>
+        <div class="panel-head"><div><h2>Customer List</h2><p>Every customer on record</p></div><span class="panel-meta">${customerList.length} customers</span></div>
         <div class="toolbar">
           ${toolbarField("Search", search("customer-search", "Search by customer name", state.customerSearch), true)}
         </div>
@@ -1117,11 +1212,11 @@ function customersPage() {
           <table>
             <thead><tr><th>Customer</th><th>Type</th><th>Active orders</th><th>Blocked</th></tr></thead>
             <tbody>${
-              customers.length
-                ? customers
+              customerList.length
+                ? customerList
                     .map((customer) => {
                       const summary = customerSummary(customer);
-                      return `<tr class="${selected && customer.name === selected.name ? "selected" : ""}" data-customer="${customer.name}"><td>${customer.name}</td><td>${customer.customerType}</td><td>${summary.active}</td><td>${summary.blocked}</td></tr>`;
+                      return `<tr class="${selected && customer.id === selected.id ? "selected" : ""}" data-customer="${customer.id}"><td>${customer.name}</td><td>${customer.customerType}</td><td>${summary.active}</td><td>${summary.blocked}</td></tr>`;
                     })
                     .join("")
                 : `<tr><td colspan="4">No customers match this search.</td></tr>`
@@ -1206,7 +1301,7 @@ function noIssuesPage() {
     ${header("No Issues", "Empty state example for a fully clear production queue")}
     <section class="card empty-state">
       <div>
-        <h2>No blocked orders or critical shortages</h2>
+        <h2>No blocked orders or inventory shortages</h2>
         <p>All checked production orders can be fulfilled with current inventory. New shortages will appear here when inventory drops below required levels.</p>
         <div class="form-actions" style="justify-content:center;">${button("Go to dashboard", "dashboard")}</div>
       </div>
@@ -1422,13 +1517,13 @@ function routeTo(route) {
 
 function readCreateOrderFormInputs() {
   const orderId = document.querySelector("[data-create-field='orderId']");
-  const customer = document.querySelector("[data-create-field='customer']");
+  const newCustomerName = document.querySelector("[data-create-field='newCustomerName']");
   const qty = document.querySelector("[data-create-field='qty']");
   const orderedDate = document.querySelector("[data-create-field='orderedDate']");
   const date = document.querySelector("[data-create-field='date']");
   const notes = document.querySelector("[data-create-field='notes']");
   state.createOrderId = orderId?.value.trim() || "";
-  state.createCustomer = customer?.value.trim() || "";
+  if (newCustomerName) state.createNewCustomerName = newCustomerName.value.trim();
   state.createQty = qty?.value.trim() || "";
   state.createOrderedDate = orderedDate?.value.trim() || "";
   state.createDate = date?.value.trim() || "";
@@ -1439,17 +1534,7 @@ document.addEventListener("click", (event) => {
   const option = event.target.closest("[data-dropdown-option]");
   if (option) {
     const key = option.dataset.dropdownOption;
-    if (key.startsWith("createComponent-")) {
-      const index = Number(key.slice("createComponent-".length));
-      const pickedItem = inventory.find((item) => item.name === option.dataset.value);
-      state.createComponents[index] = { ...state.createComponents[index], itemId: pickedItem ? pickedItem.id : null };
-      render();
-      return;
-    }
     state[key] = option.dataset.value;
-    if (key === "createPump") {
-      state.createComponents = defaultComponentsForModel(option.dataset.value);
-    }
     render();
     return;
   }
@@ -1777,21 +1862,6 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  const addComponent = event.target.closest("[data-action='add-component']");
-  if (addComponent) {
-    state.createComponents = [...(state.createComponents || []), { itemId: null, required: "" }];
-    render();
-    return;
-  }
-
-  const removeComponent = event.target.closest("[data-remove-component]");
-  if (removeComponent) {
-    const index = Number(removeComponent.dataset.removeComponent);
-    state.createComponents = (state.createComponents || []).filter((_, i) => i !== index);
-    render();
-    return;
-  }
-
   const saveHistoryEdit = event.target.closest("[data-action='save-history-edit']");
   if (saveHistoryEdit) {
     const id = state.selectedCompletedRequestId;
@@ -1891,17 +1961,10 @@ document.addEventListener("input", (event) => {
     return;
   }
 
-  const componentQty = event.target.closest("[data-component-qty]");
-  if (componentQty) {
-    const index = Number(componentQty.dataset.componentQty);
-    state.createComponents[index] = { ...state.createComponents[index], required: componentQty.value };
-    return;
-  }
-
   const createField = event.target.closest("[data-create-field]");
   if (createField) {
     if (createField.dataset.createField === "orderId") state.createOrderId = createField.value;
-    if (createField.dataset.createField === "customer") state.createCustomer = createField.value;
+    if (createField.dataset.createField === "newCustomerName") state.createNewCustomerName = createField.value;
     if (createField.dataset.createField === "qty") state.createQty = createField.value;
     if (createField.dataset.createField === "orderedDate") state.createOrderedDate = createField.value;
     if (createField.dataset.createField === "date") state.createDate = createField.value;
