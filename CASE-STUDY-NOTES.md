@@ -193,7 +193,126 @@ BOM ── vs ──► inventory ──► Blocked / Ready to build
 
 ---
 
-## 9. Still outstanding
+## 9. UX findings, and the methodology each maps to
+
+Raw material for framing the work in UX terms. **Everything below actually
+happened during the rework** — each entry has real evidence behind it. Use these
+to describe decisions that were genuinely made; don't dress them up as user
+research, usability testing, or interviews, none of which took place. The
+integrity distinction matters: "I audited the interface against heuristics and
+found these violations" is true and defensible. "Testing with 5 participants
+revealed…" is not, and tends to collapse the moment an interviewer asks a
+follow-up question.
+
+### 9.1 Dead affordances — controls that look interactive but aren't
+
+- **Search inputs** on Orders and Inventory rendered as normal search boxes but
+  had no filtering logic behind them at all. Typing did nothing.
+- **Dashboard metric tiles** (In production / Ready to build / Blocked) were
+  static text on a page where every table row was clickable.
+- *Fix:* wired the searches to real filtering; made the tiles navigate to Orders
+  with the matching status filter pre-applied.
+- *Principle:* perceived affordance vs actual affordance. A control that invites
+  interaction and does nothing is worse than no control, because it costs the
+  user a failed attempt and some trust.
+
+### 9.2 Interaction cost
+
+- Completing one order required **five clicks** through a fixed stage pipeline
+  (Machining → Assembly → Pressure Test → Seal Integrity Check → Packaging).
+- *Fix:* removed the pipeline; one click completes an order.
+- *Trade-off, stated honestly:* this removed the app's strongest domain-specific
+  logic — the gate that made it impossible to ship an untested pump. Simplicity
+  was chosen over enforcement. Worth presenting as a real trade rather than a
+  clean win.
+- *Principle:* interaction cost vs. process enforcement — ceremony is only
+  justified when the step it forces has genuine value.
+
+### 9.3 Redundant signals — two fields, one piece of information
+
+- The Purchasing detail panel showed both **Priority** and **Criticality**.
+  Checking the data proved they were perfectly correlated: every Critical row was
+  High, and every High row was Critical — because criticality *overwrote*
+  priority in the code.
+- *Fix:* removed Criticality. Priority then derived from the order and started
+  varying meaningfully (High / Medium / Low).
+- *Principle:* signal redundancy. Two indicators that never disagree train users
+  to ignore both. Removing the duplicate is what made the survivor informative.
+
+### 9.4 Information hierarchy failure — the most important thing was invisible
+
+- "Blocked" was the only dashboard tile with red emphasis styling, i.e. the
+  design already treated it as the most urgent number. But the orders table
+  below sorted blocked orders **last** with a 5-row cap, and there were 4 blocked
+  + 3 in production — so **no blocked order ever appeared on the dashboard.**
+- *Fix:* the table now samples across statuses (round-robin, then regrouped) so
+  every status is represented in a compact six-row view.
+- *Principle:* visual hierarchy must be backed by information hierarchy. Styling
+  something as urgent while burying it is a contradiction the user has to resolve.
+
+### 9.5 Error prevention through constraint
+
+- **Customer name** was a free-text field. Typing variations produced separate
+  customers — `"Delta Farms"`, `"delta farms"` and `"Delta Farms Inc"` became
+  three records. Customer *type* lived on the order, so the same company could be
+  Agricultural on one order and Municipal on another.
+- **Bill of materials** was editable per order, so two orders for the same pump
+  model could silently require different parts.
+- *Fix:* customers became a picked list with an explicit "add new" path that
+  rejects existing names; BOM became read-only, derived from the pump model.
+- *Principle:* prevent the error rather than validate after the fact (Nielsen's
+  error prevention). Where a value is a fact about a *thing*, not about *this
+  transaction*, it belongs on the thing — and shouldn't be re-enterable.
+
+### 9.6 Label clarity — when a label needs a subtitle, it isn't working
+
+- The dashboard tiles read: "In production — currently being built", "Blocked —
+  need inventory action", and **"Ready — can start production."** Two subtitles
+  added context; the third had to *define the word*.
+- "Ready" was also ambiguous in a manufacturing context — ready to build, or
+  ready to ship?
+- *Fix:* renamed to **"Ready to build"**; the subtitle became free to say
+  something new ("All components in stock"). Also renamed "Status action" to
+  "Next step" to match wording already used elsewhere in the app.
+- *Principle:* a label that needs a gloss is doing too little work. Also
+  terminology consistency — the same concept had three different names across
+  three screens.
+
+### 9.7 Wrong component for the container
+
+- A 4-column table was placed in a 332px side panel. With fixed table layout that
+  gave ~62px per column, so "PO-1048" wrapped onto two lines and "Pump A-12" onto
+  three.
+- *Fix:* replaced the table with a card list — the right pattern for a narrow
+  column. Every field then fit on one line.
+- *Diagnostic worth naming:* the same panel had already been redesigned twice to
+  make the table fit. When content keeps fighting its container, the container
+  (or the component choice) is usually wrong — not the content.
+
+### 9.8 Motion that misleads
+
+- Selected table rows and modals used CSS keyframe entrance animations. Because
+  the app re-renders the entire DOM on every state change, those animations
+  replayed on *every* render — including ones triggered by unrelated actions
+  elsewhere on the page. It read as flicker.
+- *Fix:* removed the entrance animations; kept static selection styling.
+- *Principle:* motion should communicate a state change. Motion that fires when
+  nothing meaningful changed is noise, and actively undermines its own purpose.
+
+### 9.9 Honest framing of scope
+
+- The app serves a **single persona** — an owner-operator who does production
+  planning, purchasing, and the floor. There is no auth, no roles, and no
+  per-action attribution.
+- This is defensible as a scoping decision for a small manufacturer, and worth
+  presenting that way rather than as an oversight — while naming that role
+  separation is the first wall you'd hit if a team used it.
+- *Principle:* scope discipline. Knowing which user you are *not* serving is a
+  design decision, not a gap.
+
+---
+
+## 10. Still outstanding
 
 - `README.md` still describes the pre-rework app — no mention of bills of
   materials, purchasing, customers, or stock consumption.
